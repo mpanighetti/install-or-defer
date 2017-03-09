@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Copy all output to the system log for diagnostic purposes.
+exec 1> >(logger -s -t "$(basename "$0")") 2>&1
+
+HELPER_LD="$3/private/tmp/com.elliotjordan.install_or_defer_helper.plist"
+MAIN_LD="$3/Library/LaunchDaemons/com.elliotjordan.install_or_defer.plist"
+
+if [[ -f "$HELPER_LD" ]]; then
+    echo "Unloading and removing $HELPER_LD..."
+    launchctl unload -w "$HELPER_LD"
+    rm -f "$HELPER_LD"
+fi
+
+if [[ -f "$MAIN_LD" ]]; then
+    echo "Unloading and removing $MAIN_LD..."
+    launchctl unload -w "$MAIN_LD"
+    rm -f "$MAIN_LD"
+fi
