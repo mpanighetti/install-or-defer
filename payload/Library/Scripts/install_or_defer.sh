@@ -11,8 +11,8 @@
 #                   specified amount of time, the update will be forced.
 #          Author:  Elliot Jordan <elliot@elliotjordan.com>
 #         Created:  2017-03-09
-#   Last Modified:  2017-03-09
-#         Version:  1.0
+#   Last Modified:  2017-07-24
+#         Version:  1.0.1
 #
 ###
 
@@ -155,7 +155,7 @@ EOF
 	<key>Label</key>
 	<string>${BUNDLE_ID}_helper</string>
 	<key>Program</key>
-	<string>/tmp/$HELPER_SCRIPT</string>
+	<string>/private/tmp/$HELPER_SCRIPT</string>
 	<key>ThrottleInterval</key>
 	<integer>10</integer>
 </dict>
