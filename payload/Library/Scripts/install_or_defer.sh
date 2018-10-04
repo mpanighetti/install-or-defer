@@ -11,8 +11,8 @@
 #                   specified amount of time, the update will be forced.
 #          Author:  Elliot Jordan <elliot@elliotjordan.com>
 #         Created:  2017-03-09
-#   Last Modified:  2017-07-24
-#         Version:  1.0.1
+#   Last Modified:  2018-10-04
+#         Version:  1.1
 #
 ###
 
@@ -88,14 +88,16 @@ convertsecs() {
 # be installed at next restart.
 trigger_updates_at_restart() {
 
-    echo "Pre-downloading all available software updates..."
-    softwareupdate --download --all
+    echo "Checking for pending recommended software updates..."
+    updateCheck=$(softwareupdate --list)
 
     # If no updates need to be installed, bail out.
-    UPDATE_COUNT=$(defaults read /Library/Updates/index ProductPaths | grep -v "[{}]" | wc -l)
-    if [[ "$UPDATE_COUNT" -eq 0 ]]; then
-        echo "No updates available."
-        clean_up_before_restart
+    if [[ "$updateCheck" == *"[recommended]"* ]]; then
+        echo "Pre-downloading all recommended software updates..."
+        softwareupdate --download --recommended
+    else
+        echo "No recommended updates available."
+        clean_up
 
         echo "Running jamf recon..."
         $jamf recon
@@ -214,7 +216,7 @@ trigger_restart() {
 }
 
 # Clean up plist values and self destruct LaunchDaemon and script.
-clean_up_before_restart() {
+clean_up() {
 
     echo "Cleaning up stored plist values..."
     defaults delete "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null
@@ -401,7 +403,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 0 ]]; then
         echo "User clicked Restart Now $PROMPT_ELAPSED_STR."
         defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null
-        clean_up_before_restart
+        clean_up
         trigger_restart
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 1 ]]; then
         # Kill the jamfHelper prompt.
@@ -438,7 +440,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
 else
     # If no deferral time remains, force installation of updates now.
     echo "No deferral time remains."
-    clean_up_before_restart
+    clean_up
     display_please_restart_msg
 fi
 
