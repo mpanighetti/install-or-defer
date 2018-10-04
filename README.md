@@ -4,9 +4,9 @@ This framework will prompt users of Jamf-managed Macs to install Apple software 
 
 ![Install or defer prompt](img/install-or-defer-fullscreen.png)
 
-This workflow is most useful for updates that require a restart and include important security-related patches (e.g. Security Update 2017-003 or macOS 10.12.3).
+This workflow is most useful for updates that require a restart and include important security-related patches (e.g. Security Update 2018-004 Sierra, macOS High Sierra 10.13.6.)
 
-This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new pkg when changes are made to the script or to the LaunchDaemon that runs it. (Despite the name, packages generated with munkipkg don't require Munki. They work great with Casper/Jamf Pro.) See the [Installer Creation](#installer-creation) section below for specific steps on creating the installer for this framework.
+This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new pkg when changes are made to the script or to the LaunchDaemon that runs it. (Despite the name, packages generated with munkipkg don't require Munki; they work great with Jamf Pro.) See the [Installer Creation](#installer-creation) section below for specific steps on creating the installer for this framework.
 
 
 ## Requirements and assumptions
@@ -129,7 +129,7 @@ The following objects should be created on the JSS in order to implement this fr
 
 ### Packages
 
-Upload this package (created with munkipkg above) to the JSS via Casper Admin or via the JSS web app:
+Upload this package (created with munkipkg above) to the JSS via Jamf Admin or via the JSS web app:
 
 - __install_or_defer-x.x.x.pkg__
 
