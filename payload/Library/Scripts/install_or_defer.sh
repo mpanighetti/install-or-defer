@@ -5,14 +5,14 @@
 #
 #            Name:  install_or_defer.sh
 #     Description:  This script, meant to be triggered periodically by a
-#                   LaunchDaemon, will prompt users to install Apple software
+#                   LaunchDaemon, will prompt users to install Apple system
 #                   updates that the IT department has deemed "critical." Users
 #                   will have the option to Restart Now or Defer. After a
 #                   specified amount of time, the update will be forced.
 #          Author:  Elliot Jordan <elliot@elliotjordan.com>
 #         Created:  2017-03-09
-#   Last Modified:  2018-10-04
-#         Version:  1.1
+#   Last Modified:  2018-12-05
+#         Version:  2.0
 #
 ###
 
@@ -50,8 +50,16 @@ MSG_ACT_OR_DEFER="Apple has released critical security updates, and the ExampleC
 If you have any questions, please call or email the ExampleCorp Help Desk."
 
 # The message users will receive after the deferral deadline has been reached.
-MSG_RESTART_HEADING="Please restart now"
-MSG_RESTART="Please save your work immediately, then choose Restart from the Apple menu."
+#   - %UPDATE_MECHANISM% will be automatically replaced depending on macOS
+#     version:
+#     - macOS 10.13 or lower: "App Store > Updates"
+#     - macOS 10.14+: "System Preferences > Software Update"
+MSG_RESTART_HEADING="Please run updates now"
+MSG_RESTART="Please save your work, then open %UPDATE_MECHANISM% and apply all system and security updates, then restart when prompted. If no action is taken, updates will be installed and your Mac will restart automatically."
+
+#
+MSG_UPDATING_HEADING="Running updates"
+MSG_UPDATING="Running system updates in the background. Your Mac will restart automatically when this is finished. You can force this to complete sooner by opening App Store and applying all system and security updates, then restarting when prompted."
 
 
 #################################### TIMING ###################################
@@ -84,53 +92,22 @@ convertsecs() {
     printf "%02dh:%02dm:%02ds\n" $h $m $s
 }
 
-# This function checks for all available software updates and triggers them to
-# be installed at next restart.
-trigger_updates_at_restart() {
+# This function caches all available recommended system updates, or exits if no
+# updates are available.
+check_for_updates () {
 
-    echo "Checking for pending recommended software updates..."
+    echo "Checking for pending recommended system updates..."
     updateCheck=$(softwareupdate --list)
 
     # If no updates need to be installed, bail out.
     if [[ "$updateCheck" == *"[recommended]"* ]]; then
-        echo "Pre-downloading all recommended software updates..."
+        echo "Pre-downloading recommended system updates..."
         softwareupdate --download --recommended
     else
-        echo "No recommended updates available."
+        echo "No recommended system updates available."
         clean_up
-
-        echo "Running jamf recon..."
-        $jamf recon
-
-        echo "Unloading $BUNDLE_ID LaunchDaemon. Script will end here."
-        launchctl unload -w "/private/tmp/$BUNDLE_ID.plist"
-        exit 0
+        exit_without_updating
     fi
-
-    echo "Configuring updates to be installed at restart..."
-    # Code borrowed from: https://jamfnation.jamfsoftware.com/discussion.html?id=15390#responseChild94879
-
-    $PListBuddy -c "Add :InstallAtLogout array" /Library/Updates/index.plist
-    for update in $(defaults read /Library/Updates/index ProductPaths | grep -v "[{}]" | awk -F "=" '{print $1}' | grep -o "[^\" ]\+"); do
-        $PListBuddy -c "Add :InstallAtLogout: string $update" /Library/Updates/index.plist
-    done
-    touch /var/db/.SoftwareUpdateAtLogout
-    chmod og-r /var/db/.SoftwareUpdateAtLogout
-    $PListBuddy -c "Add -RootInstallMode STRING YES" /var/db/.SoftwareUpdateOptions
-    $PListBuddy -c "Add -SkipConfirm STRING YES" /var/db/.SoftwareUpdateOptions
-    chmod og-r /var/db/.SoftwareUpdateOptions
-
-    echo "Reloading com.apple.softwareupdated.plist..."
-    launchctl unload /System/Library/LaunchDaemons/com.apple.softwareupdated.plist 2>/dev/null
-    sleep 2
-    launchctl load /System/Library/LaunchDaemons/com.apple.softwareupdated.plist
-
-    echo "Reloading com.apple.suhelperd.plist..."
-    launchctl unload /System/Library/LaunchDaemons/com.apple.suhelperd.plist 2>/dev/null
-    sleep 2
-    launchctl load /System/Library/LaunchDaemons/com.apple.suhelperd.plist
-
-    echo "Updates configured to install at next restart."
 
 }
 
@@ -174,7 +151,30 @@ EOF
     sleep "$SOFT_RESTART_DELAY"
     echo "$(( SOFT_RESTART_DELAY / 60 )) minutes have elapsed since user was prompted to restart. Attempting \"soft\" restart..."
 
-    trigger_restart
+    run_updates
+
+}
+
+# Displays HUD with updating message, runs all updates, and triggers restart.
+run_updates () {
+  echo "Running all system updates..."
+  "$jamfHelper" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
+  softwareupdate --install --recommended
+  echo "Finished running updates."
+  clean_up
+  trigger_restart
+}
+
+# Clean up plist values and self destruct LaunchDaemon and script.
+clean_up() {
+
+    echo "Cleaning up stored plist values..."
+    defaults delete "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null
+    defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null
+
+    echo "Cleaning up main script and LaunchDaemon..."
+    mv "/Library/LaunchDaemons/$BUNDLE_ID.plist" "/private/tmp/$BUNDLE_ID.plist"
+    mv "$0" "/private/tmp/"
 
 }
 
@@ -215,17 +215,14 @@ trigger_restart() {
 
 }
 
-# Clean up plist values and self destruct LaunchDaemon and script.
-clean_up() {
+# Ends script without applying any system updates.
+exit_without_updating () {
+  echo "Running jamf recon..."
+  "$jamf" recon
 
-    echo "Cleaning up stored plist values..."
-    defaults delete "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null
-    defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null
-
-    echo "Cleaning up main script and LaunchDaemon..."
-    mv "/Library/LaunchDaemons/$BUNDLE_ID.plist" "/private/tmp/$BUNDLE_ID.plist"
-    mv "$0" "/private/tmp/"
-
+  "/bin/echo" "Unloading $BUNDLE_ID LaunchDaemon. Script will end here."
+  "/bin/launchctl" unload -w "/private/tmp/$BUNDLE_ID.plist"
+  exit 0
 }
 
 
@@ -267,15 +264,21 @@ fi
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | awk -F . '{print $2}')
 
-# If the OS is not 10.8 through 10.12, this script may not work. When new
-# versions of macOS are released, this logic should be updated after the script
-# has been tested successfully.
+# If the macOS version is not 10.8 through 10.14, this script may not work. When
+# new versions of macOS are released, this logic should be updated after the
+# script has been tested successfully.
 if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 8 ]] || [[ "$OS_MAJOR" -lt 10 ]]; then
     echo "[ERROR] This script requires at least OS X 10.8. This Mac has $OS_MAJOR.$OS_MINOR."
     BAILOUT=true
-elif [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -gt 12 ]] || [[ "$OS_MAJOR" -gt 10 ]]; then
-    echo "[ERROR] This script has been tested through 10.12 only. This Mac has $OS_MAJOR.$OS_MINOR."
+elif [[ "$OS_MAJOR" -gt 10 ]] || [[ "$OS_MINOR" -gt 14 ]]; then
+    echo "[ERROR] This script has been tested through macOS 10.14 only. This Mac has $OS_MAJOR.$OS_MINOR."
     BAILOUT=true
+else
+    if [[ "$OS_MINOR" -lt 14 ]]; then
+        MSG_RESTART="${MSG_RESTART//%UPDATE_MECHANISM%/App Store > Updates}"
+    else
+        MSG_RESTART="${MSG_RESTART//%UPDATE_MECHANISM%/System Preferences > Software Update}"
+    fi
 fi
 
 # We need to be connected to the internet in order to download updates.
@@ -317,14 +320,11 @@ elif [[ ! -f "$LOGO" ]]; then
     LOGO="/Applications/App Store.app/Contents/Resources/AppStore.help/Contents/Resources/SharedGlobalArt/AppLanding_AppStore.png"
 fi
 
-# Perform first run tasks, including calculating deadline and clearing cache.
+# Perform first run tasks, including calculating deadline.
 FORCE_DATE=$(defaults read "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null)
 if [[ -z $FORCE_DATE || $FORCE_DATE -gt $(( $(date +%s) + MAX_DEFERRAL_TIME )) ]]; then
     FORCE_DATE=$(( $(date +%s) + MAX_DEFERRAL_TIME ))
     defaults write "$PLIST" AppleSoftwareUpdatesForcedAfter -int $FORCE_DATE
-
-    echo "Clearing software update cache..."
-    rm -rf /Library/Updates
 fi
 
 # Calculate how much time remains until deferral deadline.
@@ -332,9 +332,8 @@ DEFER_TIME_LEFT=$(( FORCE_DATE - $(date +%s) ))
 echo "Deferral deadline: $(date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$FORCE_DATE")"
 echo "Time remaining: $(convertsecs $DEFER_TIME_LEFT)"
 
-# Set updates to install at the next restart. (If this script has already run
-# at least once, this will refresh the "InstallAtLogout" list of updates.)
-trigger_updates_at_restart
+# Check for updates, exit if none found, otherwise cache locally and continue.
+check_for_updates
 
 # Get the "deferred until" timestamp, if one exists.
 DEFERRED_UNTIL=$(defaults read "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null)
@@ -403,8 +402,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 0 ]]; then
         echo "User clicked Restart Now $PROMPT_ELAPSED_STR."
         defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null
-        clean_up
-        trigger_restart
+        run_updates
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 1 ]]; then
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
