@@ -314,10 +314,10 @@ echo "Validation and error checking passed. Starting main process..."
 # Validate logo file, if a path is provided.
 if [[ -z "$LOGO" ]]; then
     echo "No logo provided. Using App Store icon."
-    LOGO="/Applications/App Store.app/Contents/Resources/AppStore.help/Contents/Resources/SharedGlobalArt/AppLanding_AppStore.png"
+    LOGO="/Applications/App Store.app/Contents/Resources/AppIcon.icns"
 elif [[ ! -f "$LOGO" ]]; then
     echo "No logo exists at specified path ($LOGO). Using App Store icon."
-    LOGO="/Applications/App Store.app/Contents/Resources/AppStore.help/Contents/Resources/SharedGlobalArt/AppLanding_AppStore.png"
+    LOGO="/Applications/App Store.app/Contents/Resources/AppIcon.icns"
 fi
 
 # Perform first run tasks, including calculating deadline.
