@@ -4,20 +4,20 @@ This framework will prompt users of Jamf-managed Macs to install Apple software 
 
 ![Install or defer prompt](img/install-or-defer-fullscreen.png)
 
-This workflow is most useful for updates that require a restart and include important security-related patches (e.g. Security Update 2017-003 or macOS 10.12.3).
+This workflow is most useful for updates that require a restart and include important security-related patches (e.g. Security Update 2018-004 Sierra, macOS High Sierra 10.13.6.)
 
-This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new pkg when changes are made to the script or to the LaunchDaemon that runs it. (Despite the name, packages generated with munkipkg don't require Munki. They work great with Casper/Jamf Pro.) See the [Installer Creation](#installer-creation) section below for specific steps on creating the installer for this framework.
+This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new pkg when changes are made to the script or to the LaunchDaemon that runs it. (Despite the name, packages generated with munkipkg don't require Munki; they work great with Jamf Pro.) See the [Installer Creation](#installer-creation) section below for specific steps on creating the installer for this framework.
 
 
 ## Requirements and assumptions
 
 Here's what needs to be in place in order to use this framework:
 
-- This framework has been tested only on __OS X 10.8 through 10.12__, but will most likely work on 10.7+.
+- This framework has been tested only on __OS X 10.8 through 10.14__, but will most likely work on 10.7+.
 - Target Macs must be __enrolled in the JSS__ and have the `jamfHelper` binary installed.
-- A __company logo__ graphic file must already exist in a "stash" on each Mac.
-- We're assuming all the desired updates will __require a restart__. (If updates don't require a restart, they can be installed without user interaction, making this workflow unnecessary.)
-- Optional but recommended: An __OS X Server with Caching service active__ at all major office locations. This will conserve network bandwidth and improve the download speed of updates.
+- A __company logo__ graphic file must already exist in a "stash" on each Mac (if no logo is provided, the App Store icon will be used).
+- We're assuming all the desired updates will __require a restart__ (if updates don't require a restart, they can be installed without user interaction, making this workflow unnecessary).
+- Optional but recommended: A __Mac with Content Caching service active__ at all major office locations. This will conserve network bandwidth and improve the download speed of updates.
 
 
 ## Workflow detail
@@ -28,21 +28,19 @@ Here's how everything works, once it's configured:
 2. People who fall into the smart group start running the policy at next check-in.
 3. The policy installs a package that places a LaunchDaemon and a script.
 4. The LaunchDaemon executes the script, which performs the following actions:
-    1. The script uses `softwareupdate --download --all` to download all available Apple updates in the background.
-    2. The script sets all available updates to be installed when the next restart occurs.
-    3. A company-branded onscreen message appears, indicating the new updates are required to be installed. Two options are given: __Restart Now__ or __Defer__.
+    1. The script uses `softwareupdate --download --recommended` to download all available recommended Apple updates in the background.
+    2. A company-branded onscreen message appears, indicating the new updates are required to be installed. Two options are given: __Restart Now__ or __Defer__.
 
     (Note: Your company logo will appear in place of the App Store icon, if you specify the `LOGO` path.)
     ![Install or Defer](img/install-or-defer.png)
-    4. If the user clicks __Defer__, the prompt will be dismissed. The next prompt will reappear after 4 hours (customizable). Users can defer for up to 72 hours (also customizable). After 72 hours, the Mac automatically restarts and the updates install.
-    5. When the user clicks __Restart Now__, the script attempts a "soft" restart.
+    3. If the user clicks __Defer__, the prompt will be dismissed. The next prompt will reappear after 4 hours (customizable). Users can defer for up to 72 hours (also customizable). After 72 hours, the Mac automatically restarts and the updates install.
+    4. When the user clicks __Restart Now__, the script runs the cached software updates, then attempts a "soft" restart.
 5. If the deferral deadline passes, the script behaves differently:
-    1. The user sees a non-dismissable prompt asking them to restart immediately.
+    1. The user sees a non-dismissable prompt asking them to run updates immediately.
         ![Restart Now](img/restart-now.png)
-    2. If the user ignores the restart prompt for 10 minutes, the script attempts a "soft" restart.
-    3. 5 minutes after the "soft" restart, if the user still has not restarted (or if unsaved work prevents the "soft" restart from occurring), the script forces a restart to occur.
-    4. When the restart occurs, Apple's native software update mechanism kicks in and installs all available software updates.
-6. When finished, the script and LaunchDaemon self-destruct in order to prevent the prompt from incorrectly appearing again after the updates have been installed.
+    2. If the user ignores the restart prompt for 10 minutes, the script applies the cached software updates in the background, then attempts a "soft" restart.
+6. 5 minutes after the "soft" restart attempt, if the user still has not restarted (or if unsaved work prevents the "soft" restart from occurring), the script forces a restart to occur.
+7. When finished, the script and LaunchDaemon self-destruct in order to prevent the prompt from incorrectly appearing again after the updates have been installed.
 
 
 ## Limitations
@@ -51,8 +49,6 @@ The framework has two major limitations:
 
 - Sequential updates cannot be installed as a group. If multiple sequential critical updates are available, they are treated as two separate rounds of prompting/deferring. Macs requiring sequential updates may take up to 6 days (2x defer deadline) to be fully patched.
     - Possible solution: Install a LaunchDaemon that installs any remaining updates upon the next restart, enabling all updates to be installed in a single session. We did not take this approach due to the risk of false-positives causing update loops to occur.
-- All available Apple updates are installed (even the ones that aren't deemed critical).
-    - Possible solution: The framework could be reworked to target a specific update, but we've found there's very little downside to installing all available updates.
 - Reasonable attempts have been made to make this workflow enforceable, but there's nothing stopping an administrator of a Mac from unloading the LaunchDaemon or resetting the preference file.
 
 
@@ -90,6 +86,15 @@ There are several variables in the script that should be customized to your orga
 
 - `MSG_RESTART`
     The body of the message users will receive when they must restart immediately.
+
+    - This message uses the following dynamic substitution:
+        - `%UPDATE_MECHANISM%` will be automatically replaced by either "App Store > Updates" or "System Preferences > Software Update" depending on the version of macOS.
+
+- `MSG_UPDATING_HEADING`
+    The heading/title of the message users will receive when updates are running in the background.
+
+- `MSG_UPDATING`
+    The body of the message users will receive when updates are running in the background.
 
 ### Timing
 
@@ -129,7 +134,7 @@ The following objects should be created on the JSS in order to implement this fr
 
 ### Packages
 
-Upload this package (created with munkipkg above) to the JSS via Casper Admin or via the JSS web app:
+Upload this package (created with munkipkg above) to the JSS via Jamf Admin or via the JSS web app:
 
 - __install_or_defer-x.x.x.pkg__
 
