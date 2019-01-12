@@ -33,7 +33,7 @@ Here's how everything works, once it's configured:
     3. An onscreen message appears, indicating the new updates are required to be installed. Two options are given: __Run Updates__ or __Defer__.
 
         (Note: Your company logo will appear in place of the App Store icon, if you specify the `LOGO` path.)
-        
+
         ![Install or Defer](img/install-or-defer.png)
     4. If the user clicks __Defer__, the prompt will be dismissed. The next prompt will reappear after 4 hours (customizable). Users can defer for up to 72 hours (also customizable). After the deferral period has ended, the Mac automatically runs the cached updates.
     5. When the user clicks __Run Updates__, the script runs the cached software updates.
@@ -177,7 +177,7 @@ Searching with regular expressions (regex) was added to Jamf Pro as of version 1
 For completion's sake, here's an update that won't require a restart but is still tagged as `[recommended]` in the `softwareupdate` catalog:
 
 - __Critical Update Needed: Safari 12.0.2__
-    - `and` `Application Title` `is` `Safari.app`
+    - `Application Title` `is` `Safari.app`
     - `and` `(` `Application Version` `matches regex` `^11`
     - `or` `Application Version` `matches regex` `^12.0.[0-1]` `)`
 
