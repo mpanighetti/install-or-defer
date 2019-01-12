@@ -4,9 +4,9 @@ This framework will prompt users of Jamf Pro-managed Macs to install Apple softw
 
 ![Install or defer prompt](img/install-or-defer-fullscreen.png)
 
-This workflow is most useful for updates that require a restart and include important security-related patches (e.g. Security Update 2018-003 High Sierra, macOS Mojave 10.14.2.), but also applies to critical security updates that don't require a restart (e.g. Safari 12.0.2).
+This workflow is most useful for updates that require a restart and include important security-related patches (e.g. Security Update 2018-003 High Sierra, macOS Mojave 10.14.2), but also applies to critical security updates that don't require a restart (e.g. Safari 12.0.2). Basically, anything with the `[recommended]` and/or `[restart]` label in the `softwareupdate` catalog is in scope.
 
-This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer ppackage when changes are made to the script or to the LaunchDaemon that runs it (despite the name, packages generated with munkipkg don't require Munki; they work great with Jamf Pro). See the [Installer Creation](#installer-creation) section below for specific steps on creating the installer for this framework.
+This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer package when changes are made to the script or to the LaunchDaemon that runs it (despite the name, packages generated with munkipkg don't require Munki; they work great with Jamf Pro). See the [Installer Creation](#installer-creation) section below for specific steps on creating the installer for this framework.
 
 
 ## Requirements and assumptions
@@ -28,7 +28,7 @@ Here's how everything works, once it's configured:
 2. People who fall into the smart group start running the policy at next check-in.
 3. The policy installs a package that places a LaunchDaemon and a script.
 4. The LaunchDaemon executes the script, which performs the following actions:
-    1. The script runs `softwareupdate --list` to determine if any updates are required (determined by whether a `[restart]` or `[recommended]` label is found in the check). If no such updates are found, the script and LaunchDaemon self-destruct.
+    1. The script runs `softwareupdate --list` to determine if any updates are required (determined by whether a `[restart]` or `[recommended]` label is found in the update check). If no such updates are found, the script and LaunchDaemon self-destruct.
     2. If a required update is found, the script runs `softwareupdate --download --all` or `softwareupdate --download --recommended` to cache all available recommended Apple updates in the background (`--all` if a restart is required for any updates, `--recommended` if not).
     3. An onscreen message appears, indicating the new updates are required to be installed. Two options are given: __Run Updates__ or __Defer__.
 
@@ -83,7 +83,7 @@ There are several variables in the script that should be customized to your orga
     - This message uses the following dynamic substitutions:
         - `%DEFER_HOURS%` will be automatically replaced by the number of hours remaining in the deferral period.
         - The section in the {{double curly brackets}} will be removed when this message is displayed for the final time before the deferral deadline.
-        - The section in the [[double square brackets]] will be removed if an update is not required.
+        - The section in the <<double comparison operators>> will be removed if a restart is not required.
 
 - `MSG_ACT_HEADING`
     The heading/title of the message users will receive when they must run updates immediately.
@@ -93,7 +93,7 @@ There are several variables in the script that should be customized to your orga
 
     - This message uses the following dynamic substitution:
         - `%UPDATE_MECHANISM%` will be automatically replaced by either "App Store > Updates" or "System Preferences > Software Update" depending on the version of macOS.
-        - The section in the [[double square brackets]] will be removed if an update is not required.
+        - The section in the <<double comparison operators>> will be removed if a restart is not required.
 
 - `MSG_UPDATING_HEADING`
     The heading/title of the message users will receive when updates are running in the background.
@@ -103,7 +103,7 @@ There are several variables in the script that should be customized to your orga
 
     - This message uses the following dynamic substitution:
         - `%UPDATE_MECHANISM%` will be automatically replaced by either "App Store > Updates" or "System Preferences > Software Update" depending on the version of macOS.
-        - The section in the [[double square brackets]] will be removed if an update is not required.
+        - The section in the <<double comparison operators>> will be removed if a restart is not required.
 
 ### Timing
 
@@ -235,19 +235,15 @@ Create the following two policies:
     ```
     Starting install_or_defer.sh script. Performing validation and error checking...
     Validation and error checking passed. Starting main process...
-    Setting deferral deadline: 2016-09-11 16:30:53
-    Time remaining until deferral deadline: 72h:00m:00s
-    Pre-downloading all available software updates...
+    Deferral deadline: 2016-09-11 16:30:53
+    Time remaining: 72h:00m:00s
+    Checking for pending system updates...
+    Pre-downloading all system updates...
     Software Update Tool
     Copyright 2002-2015 Apple Inc.
     Finding available software
     Downloaded Security Update 2016-001
     Done.
-    Configuring updates to be installed at restart...
-    File Doesn't Exist, Will Create: /var/db/.SoftwareUpdateOptions
-    Reloading com.apple.softwareupdated.plist...
-    Reloading com.apple.suhelperd.plist...
-    Updates configured to install at next restart.
     Prompting to install updates now or defer...
     ```
 
