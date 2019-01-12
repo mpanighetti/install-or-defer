@@ -1,22 +1,22 @@
 # Install or Defer Critical Apple Updates
 
-This framework will prompt users of Jamf-managed Macs to install Apple software updates when specific updates that the IT department has deemed "critical" are available. Users will have the option to __Restart Now__ or __Defer__. After a specified amount of time, the Mac will be forced to restart and install the updates.
+This framework will prompt users of Jamf Pro-managed Macs to install Apple software updates when specific updates that the IT department has deemed "critical" are available. Users will have the option to __Run Updates__ or __Defer__. After a specified amount of time, the Mac will be forced to install the updates, then restart automatically if any updates require it.
 
 ![Install or defer prompt](img/install-or-defer-fullscreen.png)
 
-This workflow is most useful for updates that require a restart and include important security-related patches (e.g. Security Update 2018-004 Sierra, macOS High Sierra 10.13.6.)
+This workflow is most useful for updates that require a restart and include important security-related patches (e.g. Security Update 2018-003 High Sierra, macOS Mojave 10.14.2.), but also applies to critical security updates that don't require a restart (e.g. Safari 12.0.2).
 
-This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new pkg when changes are made to the script or to the LaunchDaemon that runs it. (Despite the name, packages generated with munkipkg don't require Munki; they work great with Jamf Pro.) See the [Installer Creation](#installer-creation) section below for specific steps on creating the installer for this framework.
+This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer ppackage when changes are made to the script or to the LaunchDaemon that runs it (despite the name, packages generated with munkipkg don't require Munki; they work great with Jamf Pro). See the [Installer Creation](#installer-creation) section below for specific steps on creating the installer for this framework.
 
 
 ## Requirements and assumptions
 
 Here's what needs to be in place in order to use this framework:
 
-- This framework has been tested only on __OS X 10.8 through 10.14__, but will most likely work on 10.7+.
-- Target Macs must be __enrolled in the JSS__ and have the `jamfHelper` binary installed.
-- A __company logo__ graphic file must already exist in a "stash" on each Mac (if no logo is provided, the App Store icon will be used).
-- We're assuming all the desired updates will __require a restart__ (if updates don't require a restart, they can be installed without user interaction, making this workflow unnecessary).
+- The current version of this framework has been tested only on __macOS 10.12 through 10.14__, but will most likely work on 10.8+ (note that any changes to install-or-defer will likely not be tested thoroughly in versions of macOS which no longer receive security updates from Apple, but older versions should continue to function normally in those environments).
+- Target Macs must be __enrolled in Jamf Pro__ and have the `jamfHelper` binary installed.
+- We're assuming that __an automatic restart is desired when updates require it__.
+- Optional: A __company logo__ graphic file in a "stash" on each Mac (if no logo is provided, the App Store icon will be used).
 - Optional but recommended: A __Mac with Content Caching service active__ at all major office locations. This will conserve network bandwidth and improve the download speed of updates.
 
 
@@ -24,22 +24,25 @@ Here's what needs to be in place in order to use this framework:
 
 Here's how everything works, once it's configured:
 
-1. When a new critical Apple security update is released, the Jamf administrator creates a smart group for this update and adds it to the existing policy.
+1. When a new critical Apple security update is released, the Jamf Pro administrator creates a smart group for this update and adds it to the existing policy.
 2. People who fall into the smart group start running the policy at next check-in.
 3. The policy installs a package that places a LaunchDaemon and a script.
 4. The LaunchDaemon executes the script, which performs the following actions:
-    1. The script uses `softwareupdate --download --recommended` to download all available recommended Apple updates in the background.
-    2. A company-branded onscreen message appears, indicating the new updates are required to be installed. Two options are given: __Restart Now__ or __Defer__.
+    1. The script runs `softwareupdate --list` to determine if any updates are required (determined by whether a `[restart]` or `[recommended]` label is found in the check). If no such updates are found, the script and LaunchDaemon self-destruct.
+    2. If a required update is found, the script runs `softwareupdate --download --all` or `softwareupdate --download --recommended` to cache all available recommended Apple updates in the background (`--all` if a restart is required for any updates, `--recommended` if not).
+    3. An onscreen message appears, indicating the new updates are required to be installed. Two options are given: __Run Updates__ or __Defer__.
 
     (Note: Your company logo will appear in place of the App Store icon, if you specify the `LOGO` path.)
     ![Install or Defer](img/install-or-defer.png)
-    3. If the user clicks __Defer__, the prompt will be dismissed. The next prompt will reappear after 4 hours (customizable). Users can defer for up to 72 hours (also customizable). After 72 hours, the Mac automatically restarts and the updates install.
-    4. When the user clicks __Restart Now__, the script runs the cached software updates, then attempts a "soft" restart.
+    4. If the user clicks __Defer__, the prompt will be dismissed. The next prompt will reappear after 4 hours (customizable). Users can defer for up to 72 hours (also customizable). After the deferral period has ended, the Mac automatically runs the cached updates.
+    5. When the user clicks __Run Updates__, the script runs the cached software updates.
 5. If the deferral deadline passes, the script behaves differently:
-    1. The user sees a non-dismissable prompt asking them to run updates immediately.
-        ![Restart Now](img/restart-now.png)
-    2. If the user ignores the restart prompt for 10 minutes, the script applies the cached software updates in the background, then attempts a "soft" restart.
-6. 5 minutes after the "soft" restart attempt, if the user still has not restarted (or if unsaved work prevents the "soft" restart from occurring), the script forces a restart to occur.
+    1. The user sees a non-dismissible prompt asking them to run updates immediately.
+        ![Run Updates](img/restart-now.png)
+    2. If the user ignores the update prompt for 10 minutes, the script applies the cached updates in the background.
+6. After the updates are done installing, if a restart is required:
+    1. A "soft" restart is attempted.
+    2. 5 minutes after the "soft" restart attempt, if the user still has not restarted (or if unsaved work prevents the "soft" restart from occurring), the script forces a restart to occur.
 7. When finished, the script and LaunchDaemon self-destruct in order to prevent the prompt from incorrectly appearing again after the updates have been installed.
 
 
@@ -79,22 +82,28 @@ There are several variables in the script that should be customized to your orga
 
     - This message uses the following dynamic substitutions:
         - `%DEFER_HOURS%` will be automatically replaced by the number of hours remaining in the deferral period.
-        - The section in the {{double curly braces}} will be removed when this message is displayed for the final time before the deferral deadline.
+        - The section in the {{double curly brackets}} will be removed when this message is displayed for the final time before the deferral deadline.
+        - The section in the [[double square brackets]] will be removed if an update is not required.
 
-- `MSG_RESTART_HEADING`
-    The heading/title of the message users will receive when they must restart immediately.
+- `MSG_ACT_HEADING`
+    The heading/title of the message users will receive when they must run updates immediately.
 
-- `MSG_RESTART`
-    The body of the message users will receive when they must restart immediately.
+- `MSG_ACT`
+    The body of the message users will receive when they must run updates immediately.
 
     - This message uses the following dynamic substitution:
         - `%UPDATE_MECHANISM%` will be automatically replaced by either "App Store > Updates" or "System Preferences > Software Update" depending on the version of macOS.
+        - The section in the [[double square brackets]] will be removed if an update is not required.
 
 - `MSG_UPDATING_HEADING`
     The heading/title of the message users will receive when updates are running in the background.
 
 - `MSG_UPDATING`
     The body of the message users will receive when updates are running in the background.
+
+    - This message uses the following dynamic substitution:
+        - `%UPDATE_MECHANISM%` will be automatically replaced by either "App Store > Updates" or "System Preferences > Software Update" depending on the version of macOS.
+        - The section in the [[double square brackets]] will be removed if an update is not required.
 
 ### Timing
 
@@ -104,8 +113,8 @@ There are several variables in the script that should be customized to your orga
 - `EACH_DEFER`
     When the user clicks "Defer" the next prompt is delayed by this much time.
 
-- `SOFT_RESTART_DELAY`
-    The number of seconds to wait between displaying the "please restart" message and attempting a soft restart.
+- `UPDATE_DELAY`
+    The number of seconds to wait between displaying the "run updates" message and applying updates, then attempting a soft restart.
 
 - `HARD_RESTART_DELAY`
     The number of seconds to wait between attempting a soft restart and forcing a restart.
@@ -119,13 +128,13 @@ Each time you make changes to the script, we recommend changing the following th
 
 - The Last Modified metadata in the script.
 - The Version metadata in the script.
-- The `version` key in the build-info.plist file. (Recommend matching the script version.)
+- The `version` key in the build-info.plist file (recommend matching the script version).
 
-With munkipkg installed, his command will generate a new pkg installer in the build folder:
+With munkipkg installed, his command will generate a new installer package in the build folder:
 
     munkipkg /path/to/install_or_defer
 
-The subsequent pkg can be uploaded to Jamf and scoped as specified below in the JSS setup section.
+The subsequent installer package can be uploaded to Jamf Pro and scoped as specified below in the JSS setup section.
 
 
 ## JSS setup
@@ -140,7 +149,7 @@ Upload this package (created with munkipkg above) to the JSS via Jamf Admin or v
 
 ### Smart Groups
 
-Create a smart group for each software update or OS patch you wish to enforce. Here are four examples to serve as guides.
+Create a smart group for each software update or operating system patch you wish to enforce. Here are four examples to serve as guides.
 
 - __Critical update needed: 10.10.5__
     - `Last check-in` `less than x days ago` `7`
@@ -269,10 +278,10 @@ Create the following two policies:
 
 12. You should see the install/defer prompt appear again.
 
-13. Click __Restart Now__. As long as there are no apps with unsaved changes, the Mac should restart immediately and updates should be installed.
-    - If you want to test the "hard restart" feature of this framework, open Terminal and type `top` before clicking the __Restart Now__ button. Then wait 5 minutes and confirm that the Mac restarts successfully.
+13. Click __Run Updates__. As long as there are no apps with unsaved changes, the Mac will run updates in the background.
+    - If you want to test the "hard restart" feature of this framework, open Terminal and type `top` before clicking the __Run Updates__ button. Then wait 5 minutes and confirm that the Mac restarts successfully.
 
-14. After updates are installed and the Mac is successfully restarted, you should not see any more onscreen messages.
+14. After updates are installed and (optionally) the Mac is successfully restarted, you should not see any more onscreen messages.
 
 15. (OPTIONAL) If an additional round of updates is needed (e.g. Security Update 2016-001), run `sudo jamf policy -event critical-updates` again to start the process over. Sequential updates cannot be installed as a group (see __Limitations__ section above).
 
@@ -297,8 +306,8 @@ Once the script is debugged and updated, you can generate a new installer, uploa
 
 ## Miscellaneous Notes
 
-- Feel free to change the com.elliotjordan style identifier to match your company instead. If you do this, make sure to update the filenames of the LaunchDaemons, the preinstall script, and the postinstall script.
-- You can also specify a different default logo, if you'd rather not use the App Store icon. The `sips` command can be used to convert .icns files into .png files on the fly, if needed.
+- Feel free to change the `com.elliotjordan` style identifier to match your company instead. If you do this, make sure to update the filenames of the LaunchDaemons, and their corresponding file paths in the preinstall and postinstall scripts.
+- You can also specify a different default logo, if you'd rather not use the App Store icon. `jamfHelper` supports .icns and .png files.
 - If you encounter any issues or have questions, please open an issue on this GitHub repo.
 
 Enjoy!
