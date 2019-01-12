@@ -149,34 +149,36 @@ Upload this package (created with munkipkg above) to the JSS via Jamf Admin or v
 
 ### Smart Groups
 
-Create a smart group for each software update or operating system patch you wish to enforce. Here are four examples to serve as guides.
+Create a smart group for each software update or operating system patch you wish to enforce. Here are some examples to serve as guides.
 
-- __Critical update needed: 10.10.5__
-    - `Last check-in` `less than x days ago` `7`
-    - `and` `(` `Operating system` `is` `10.10`
-    - `or` `Operating system` `is` `10.10.1`
-    - `or` `Operating system` `is` `10.10.2`
-    - `or` `Operating system` `is` `10.10.3`
-    - `or` `Operating system` `is` `10.10.4` `)`
+- __Critical Update Needed: macOS Mojave 10.14.2__
+    - `Last Check-In` `less than x days ago` `7`
+    - `and` `Operating System Build` `matches regex` `^18[A-B]`
 
-- __Critical update needed: 10.11.6__
-    - `Last check-in` `less than x days ago` `7`
-    - `and` `(` `Operating system` `is` `10.11`
-    - `or` `Operating system` `is` `10.11.1`
-    - `or` `Operating system` `is` `10.11.2`
-    - `or` `Operating system` `is` `10.11.3`
-    - `or` `Operating system` `is` `10.11.4`
-    - `or` `Operating system` `is` `10.11.5` `)`
+- __Critical Update Needed: Security Update 2018-003 High Sierra__
+    - `Last Check-In` `less than x days ago` `7`
+    - `and` `(` `Operating System Build` `matches regex` `^17G6[5-6]`
+    - `or` `Operating System Build` `matches regex` `^17G[1-3]` `)`
 
-- __Critical update needed: 2016-005 for 10.10__
-    - `Last check-in` `less than x days ago` `7`
-    - `and` `Operating system` `is` `14F1909`
+The "Last Check-In" criteria has been added in the examples above in order to make the smart group membership count more accurately reflect the number of _active_ computers that need patching, rather than including computers that have been lost, decommissioned, or shelved. The presence or absence of the "Last Check-In" criteria does not have a significant effect on behavior or scope of this framework.
 
-- __Critical update needed: 2016-003 for 10.11__
-    - `Last check-in` `less than x days ago` `7`
-    - `and` `Operating system` `is` `15G31`
+Searching with regular expressions (regex) was added to Jamf Pro as of version 10.7.0. If you're running an older version, you can use `is` to approximate the above behavior and call out each specific version you're targeting for update, as per this example:
 
-Note: The "Last check-in" criteria has been added in the examples above in order to make the smart group membership count more accurately reflect the number of _active_ computers that need patching, rather than including computers that have been lost, decommissioned, or shelved. The presence or absence of the "Last check-in" criteria does not have a significant effect on behavior or scope of this framework.
+- __Critical Update Needed: macOS High Sierra 10.13.6__
+    - `Last Check-In` `less than x days ago` `7`
+    - `and` `(` `Operating System` `is` `10.13`
+    - `or` `Operating System` `is` `10.13.1`
+    - `or` `Operating System` `is` `10.13.2`
+    - `or` `Operating System` `is` `10.13.3`
+    - `or` `Operating System` `is` `10.13.4`
+    - `or` `Operating System` `is` `10.13.5` `)`
+
+For completion's sake, here's an update that won't require a restart but is still tagged as `[recommended]` in the `softwareupdate` catalog:
+
+- __Critical Update Needed: Safari 12.0.2__
+    - `and` `Application Title` `is` `Safari.app`
+    - `and` `(` `Application Version` `matches regex` `^11`
+    - `or` `Application Version` `matches regex` `^12.0.[0-1]` `)`
 
 ### Policies
 
