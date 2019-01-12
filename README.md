@@ -33,7 +33,7 @@ Here's how everything works, once it's configured:
     3. An onscreen message appears, indicating the new updates are required to be installed. Two options are given: __Run Updates__ or __Defer__.
 
     (Note: Your company logo will appear in place of the App Store icon, if you specify the `LOGO` path.)
-    ![Install or Defer](img/install-or-defer.png)
+        ![Install or Defer](img/install-or-defer.png)
     4. If the user clicks __Defer__, the prompt will be dismissed. The next prompt will reappear after 4 hours (customizable). Users can defer for up to 72 hours (also customizable). After the deferral period has ended, the Mac automatically runs the cached updates.
     5. When the user clicks __Run Updates__, the script runs the cached software updates.
 5. If the deferral deadline passes, the script behaves differently:
