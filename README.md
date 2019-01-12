@@ -38,7 +38,7 @@ Here's how everything works, once it's configured:
     5. When the user clicks __Run Updates__, the script runs the cached software updates.
 5. If the deferral deadline passes, the script behaves differently:
     1. The user sees a non-dismissible prompt asking them to run updates immediately.
-        ![Run Updates](img/restart-now.png)
+        ![Run Updates Now](img/run-updates-now.png)
     2. If the user ignores the update prompt for 10 minutes, the script applies the cached updates in the background.
 6. After the updates are done installing, if a restart is required:
     1. A "soft" restart is attempted.
@@ -278,7 +278,8 @@ Create the following two policies:
 
 12. You should see the install/defer prompt appear again.
 
-13. Click __Run Updates__. As long as there are no apps with unsaved changes, the Mac will run updates in the background.
+13. Click __Run Updates__. As long as there are no apps with unsaved changes, the Mac will run updates in the background. You should see the following prompt appear onscreen:
+    ![Running Updates](img/running-updates.png)
     - If you want to test the "hard restart" feature of this framework, open Terminal and type `top` before clicking the __Run Updates__ button. Then wait 5 minutes and confirm that the Mac restarts successfully.
 
 14. After updates are installed and (optionally) the Mac is successfully restarted, you should not see any more onscreen messages.
