@@ -188,6 +188,7 @@ run_updates () {
   "$jamfHelper" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
   softwareupdate --install --$installWhich
   echo "Finished running updates."
+  killall jamfHelper 2>/dev/null
   clean_up
 
   # Trigger restart if script ran an update which requires it.
