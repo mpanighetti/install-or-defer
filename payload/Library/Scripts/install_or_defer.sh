@@ -42,7 +42,7 @@ BUNDLE_ID="com.elliotjordan.install_or_defer"
 #     remaining in the deferral period.
 #   - The section in the {{double curly brackets}} will be removed when this
 #     message is displayed for the final time before the deferral deadline.
-#   - The sections in the [[double square brackets]] will be removed if a restart
+#   - The sections in the <<double comparison operators>> will be removed if a restart
 #     is not required for the pending updates.
 #   - %UPDATE_MECHANISM% will be automatically replaced depending on macOS
 #     version:
@@ -54,19 +54,19 @@ BUNDLE_ID="com.elliotjordan.install_or_defer"
 MSG_ACT_OR_DEFER_HEADING="Critical updates are available"
 MSG_ACT_OR_DEFER="Apple has released critical security updates, and the ExampleCorp IT department would like you to install them as soon as possible. Please save your work, quit all applications, and click Run Updates.
 
-{{If now is not a good time, you may defer this message until later. }}Updates will install automatically after %DEFER_HOURS% hours[[, forcing your Mac to restart in the process]]. Note: This may result in losing unsaved work.
+{{If now is not a good time, you may defer this message until later. }}Updates will install automatically after %DEFER_HOURS% hours<<, forcing your Mac to restart in the process>>. Note: This may result in losing unsaved work.
 
-If you'd like to manually install the updates yourself, open %UPDATE_MECHANISM% and apply all system and security updates[[, then restart when prompted]].
+If you'd like to manually install the updates yourself, open %UPDATE_MECHANISM% and apply all system and security updates<<, then restart when prompted>>.
 
 If you have any questions, please call or email the ExampleCorp Help Desk."
 
 # The message users will receive after the deferral deadline has been reached.
 MSG_ACT_HEADING="Please run updates now"
-MSG_ACT="Please save your work, then open %UPDATE_MECHANISM% and apply all system and security updates[[, then restart when prompted]]. If no action is taken, updates will be installed automatically[[, and your Mac will restart]]."
+MSG_ACT="Please save your work, then open %UPDATE_MECHANISM% and apply all system and security updates<<, then restart when prompted>>. If no action is taken, updates will be installed automatically<<, and your Mac will restart>>."
 
 # The message users will receive while updates are running in the background.
 MSG_UPDATING_HEADING="Running updates"
-MSG_UPDATING="Running system updates in the background.[[ Your Mac will restart automatically when this is finished.]] You can force this to complete sooner by opening %UPDATE_MECHANISM% and applying all system and security updates."
+MSG_UPDATING="Running system updates in the background.<< Your Mac will restart automatically when this is finished.>> You can force this to complete sooner by opening %UPDATE_MECHANISM% and applying all system and security updates."
 
 
 #################################### TIMING ###################################
@@ -112,18 +112,18 @@ check_for_updates () {
     # a restart. If no updates need to be installed, bail out.
     if [[ "$updateCheck" == *"[restart]"* ]]; then
         installWhich="all"
-        # Remove "[[" and "]]" but leave the text between
+        # Remove "<<" and ">>" but leave the text between
         # (retains restart warnings).
-        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/[\[\[|\]\]]//g')"
-        MSG_ACT="$(echo "$MSG_ACT" | sed 's/[\[\[|\]\]]//g')"
-        MSG_UPDATING="$(echo "$MSG_UPDATING" | sed 's/[\[\[|\]\]]//g')"
+        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/[\<\<|\>\>]//g')"
+        MSG_ACT="$(echo "$MSG_ACT" | sed 's/[\<\<|\>\>]//g')"
+        MSG_UPDATING="$(echo "$MSG_UPDATING" | sed 's/[\<\<|\>\>]//g')"
     elif [[ "$updateCheck" == *"[recommended]"* ]]; then
         installWhich="recommended"
-        # Remove "[[" and "]]" including all the text between
+        # Remove "<<" and ">>" including all the text between
         # (removes restart warnings).
-        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/\[\[.*\]\]//g')"
-        MSG_ACT="$(echo "$MSG_ACT" | sed 's/\[\[.*\]\]//g')"
-        MSG_UPDATING="$(echo "$MSG_UPDATING" | sed 's/\[\[.*\]\]//g')"
+        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/\<\<.*\>\>//g')"
+        MSG_ACT="$(echo "$MSG_ACT" | sed 's/\<\<.*\>\>//g')"
+        MSG_UPDATING="$(echo "$MSG_UPDATING" | sed 's/\<\<.*\>\>//g')"
     else
         echo "No critical updates available."
         clean_up
@@ -303,9 +303,11 @@ elif [[ "$OS_MAJOR" -gt 10 ]] || [[ "$OS_MINOR" -gt 14 ]]; then
     BAILOUT=true
 else
     if [[ "$OS_MINOR" -lt 14 ]]; then
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/App Store > Updates}"
         MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/App Store > Updates}"
         MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/App Store > Updates}"
     else
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/System Preferences > Software Update}"
         MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/System Preferences > Software Update}"
         MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/System Preferences > Software Update}"
     fi
