@@ -7,12 +7,14 @@
 #     Description:  This script, meant to be triggered periodically by a
 #                   LaunchDaemon, will prompt users to install Apple system
 #                   updates that the IT department has deemed "critical." Users
-#                   will have the option to Restart Now or Defer. After a
-#                   specified amount of time, the update will be forced.
+#                   will have the option to Run Updates or Defer. After a
+#                   specified amount of time, the update will be forced. If
+#                   updates requiring a restart were found in the update check,
+#                   restarts automatically.
 #          Author:  Elliot Jordan <elliot@elliotjordan.com>
 #         Created:  2017-03-09
-#   Last Modified:  2018-12-05
-#         Version:  2.0
+#   Last Modified:  2019-01-11
+#         Version:  2.1
 #
 ###
 
@@ -35,31 +37,36 @@ BUNDLE_ID="com.elliotjordan.install_or_defer"
 
 ################################## MESSAGING ##################################
 
-# The message users will receive when updates are available, shown above the
-# "Restart Now" and "Defer" buttons. This message uses the following dynamic
-# substitutions:
+# The messages below use the following dynamic substitutions:
 #   - %DEFER_HOURS% will be automatically replaced by the number of hours
 #     remaining in the deferral period.
-#   - The section in the {{double curly braces}} will be removed when this
+#   - The section in the {{double curly brackets}} will be removed when this
 #     message is displayed for the final time before the deferral deadline.
-MSG_ACT_OR_DEFER_HEADING="Critical updates are available"
-MSG_ACT_OR_DEFER="Apple has released critical security updates, and the ExampleCorp IT department would like you to install them as soon as possible. Please save your work, then click Restart Now.
-
-{{If now is not a good time, you may defer this message until later. }}%DEFER_HOURS% hours remain until your Mac restarts automatically to install these updates. This may result in losing unsaved work, so please don't wait until then.
-
-If you have any questions, please call or email the ExampleCorp Help Desk."
-
-# The message users will receive after the deferral deadline has been reached.
+#   - The sections in the <<double comparison operators>> will be removed if a restart
+#     is not required for the pending updates.
 #   - %UPDATE_MECHANISM% will be automatically replaced depending on macOS
 #     version:
 #     - macOS 10.13 or lower: "App Store > Updates"
 #     - macOS 10.14+: "System Preferences > Software Update"
-MSG_RESTART_HEADING="Please run updates now"
-MSG_RESTART="Please save your work, then open %UPDATE_MECHANISM% and apply all system and security updates, then restart when prompted. If no action is taken, updates will be installed and your Mac will restart automatically."
 
-#
+# The message users will receive when updates are available, shown above the
+# "Run Updates" and "Defer" buttons.
+MSG_ACT_OR_DEFER_HEADING="Critical updates are available"
+MSG_ACT_OR_DEFER="Apple has released critical security updates, and the ExampleCorp IT department would like you to install them as soon as possible. Please save your work, quit all applications, and click Run Updates.
+
+{{If now is not a good time, you may defer this message until later. }}Updates will install automatically after %DEFER_HOURS% hours<<, forcing your Mac to restart in the process>>. Note: This may result in losing unsaved work.
+
+If you'd like to manually install the updates yourself, open %UPDATE_MECHANISM% and apply all system and security updates<<, then restart when prompted>>.
+
+If you have any questions, please call or email the ExampleCorp Help Desk."
+
+# The message users will receive after the deferral deadline has been reached.
+MSG_ACT_HEADING="Please run updates now"
+MSG_ACT="Please save your work, then open %UPDATE_MECHANISM% and apply all system and security updates<<, then restart when prompted>>. If no action is taken, updates will be installed automatically<<, and your Mac will restart>>."
+
+# The message users will receive while updates are running in the background.
 MSG_UPDATING_HEADING="Running updates"
-MSG_UPDATING="Running system updates in the background. Your Mac will restart automatically when this is finished. You can force this to complete sooner by opening App Store and applying all system and security updates, then restarting when prompted."
+MSG_UPDATING="Running system updates in the background.<< Your Mac will restart automatically when this is finished.>> You can force this to complete sooner by opening %UPDATE_MECHANISM% and applying all system and security updates."
 
 
 #################################### TIMING ###################################
@@ -70,9 +77,9 @@ MAX_DEFERRAL_TIME=$(( 60 * 60 * 24 * 3 )) # (259200 = 3 days)
 # When the user clicks "Defer" the next prompt is delayed by this much time.
 EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
 
-# The number of seconds to wait between displaying the "please restart" message
-# and attempting a soft restart.
-SOFT_RESTART_DELAY=$(( 60 * 10 )) # (600 = 10 minutes)
+# The number of seconds to wait between displaying the "run updates" message
+# and applying updates, then attempting a soft restart.
+UPDATE_DELAY=$(( 60 * 10 )) # (600 = 10 minutes)
 
 # The number of seconds to wait between attempting a soft restart and forcing a
 # restart.
@@ -85,40 +92,59 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # Source: http://stackoverflow.com/a/12199798
 # License: CC BY-SA 3.0 (https://creativecommons.org/licenses/by-sa/3.0/)
 # Created by: perreal (http://stackoverflow.com/users/390913/perreal)
-convertsecs() {
+convert_seconds () {
+
     ((h=${1}/3600))
     ((m=(${1}%3600)/60))
     ((s=${1}%60))
     printf "%02dh:%02dm:%02ds\n" $h $m $s
+
 }
 
-# This function caches all available recommended system updates, or exits if no
-# updates are available.
+# This function caches all available critical system updates, or exits if no
+# critical updates are available.
 check_for_updates () {
 
-    echo "Checking for pending recommended system updates..."
+    echo "Checking for pending system updates..."
     updateCheck=$(softwareupdate --list)
 
-    # If no updates need to be installed, bail out.
-    if [[ "$updateCheck" == *"[recommended]"* ]]; then
-        echo "Pre-downloading recommended system updates..."
-        softwareupdate --download --recommended
+    # Determine whether any critical updates are available, and if any require
+    # a restart. If no updates need to be installed, bail out.
+    if [[ "$updateCheck" == *"[restart]"* ]]; then
+        installWhich="all"
+        # Remove "<<" and ">>" but leave the text between
+        # (retains restart warnings).
+        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/[\<\<|\>\>]//g')"
+        MSG_ACT="$(echo "$MSG_ACT" | sed 's/[\<\<|\>\>]//g')"
+        MSG_UPDATING="$(echo "$MSG_UPDATING" | sed 's/[\<\<|\>\>]//g')"
+    elif [[ "$updateCheck" == *"[recommended]"* ]]; then
+        installWhich="recommended"
+        # Remove "<<" and ">>" including all the text between
+        # (removes restart warnings).
+        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/\<\<.*\>\>//g')"
+        MSG_ACT="$(echo "$MSG_ACT" | sed 's/\<\<.*\>\>//g')"
+        MSG_UPDATING="$(echo "$MSG_UPDATING" | sed 's/\<\<.*\>\>//g')"
     else
-        echo "No recommended system updates available."
+        echo "No critical updates available."
         clean_up
         exit_without_updating
     fi
 
+    # Download updates (all updates if a restart is required for any, otherwise
+    # just recommended updates).
+    echo "Pre-downloading $installWhich system updates..."
+    softwareupdate --download --$installWhich
+
 }
 
 # Invoked after the deferral deadline passes, this function displays an
-# onscreen message instructing the user to restart.
-display_please_restart_msg() {
+# onscreen message instructing the user to apply updates.
+display_act_msg () {
 
     # Create a jamfHelper script that will be called by a LaunchDaemon.
     cat << EOF > "/private/tmp/$HELPER_SCRIPT"
 #!/bin/bash
-"$jamfHelper" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_RESTART_HEADING" -description "$MSG_RESTART"
+"$jamfHelper" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_HEADING" -description "$MSG_ACT"
 EOF
     chmod +x "/private/tmp/$HELPER_SCRIPT"
 
@@ -142,31 +168,38 @@ EOF
 EOF
 
     # Load the LaunchDaemon to show the jamfHelper message.
-    echo "Displaying \"please restart\" message..."
+    echo "Displaying \"run updates\" message..."
     killall jamfHelper 2>/dev/null
     launchctl load -w "/private/tmp/${BUNDLE_ID}_helper.plist"
 
-    # After specified delay, attempt a soft restart.
-    echo "Waiting $(( SOFT_RESTART_DELAY / 60 )) minutes before attempting a \"soft restart\"..."
-    sleep "$SOFT_RESTART_DELAY"
-    echo "$(( SOFT_RESTART_DELAY / 60 )) minutes have elapsed since user was prompted to restart. Attempting \"soft\" restart..."
+    # After specified delay, apply updates.
+    echo "Waiting $(( UPDATE_DELAY / 60 )) minutes before automatically applying updates..."
+    sleep "$UPDATE_DELAY"
+    echo "$(( UPDATE_DELAY / 60 )) minutes have elapsed since user was prompted to run updates. Triggering updates..."
 
     run_updates
 
 }
 
-# Displays HUD with updating message, runs all updates, and triggers restart.
+# Displays HUD with updating message and runs all cached updates.
 run_updates () {
-  echo "Running all system updates..."
+
+  echo "Running $installWhich system updates..."
   "$jamfHelper" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
-  softwareupdate --install --recommended
+  softwareupdate --install --$installWhich
   echo "Finished running updates."
+  killall jamfHelper 2>/dev/null
   clean_up
-  trigger_restart
+
+  # Trigger restart if script ran an update which requires it.
+  if [[ "$installWhich" = "all" ]]; then
+      trigger_restart
+  fi
+
 }
 
 # Clean up plist values and self destruct LaunchDaemon and script.
-clean_up() {
+clean_up () {
 
     echo "Cleaning up stored plist values..."
     defaults delete "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null
@@ -180,9 +213,10 @@ clean_up() {
 
 # This function immediately attempts a "soft" restart, waits a specified amount
 # of time, and then forces a "hard" restart.
-trigger_restart() {
+trigger_restart () {
 
     # Immediately attempt a "soft" restart.
+    echo "Attempting a \"soft\" restart..."
     CURRENT_USER=$(/usr/bin/stat -f%Su /dev/console)
     USER_ID=$(id -u "$CURRENT_USER")
     if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -le 9 ]]; then
@@ -194,9 +228,9 @@ trigger_restart() {
 
     # After specified delay, kill all apps forcibly, which clears the way for
     # an unobstructed restart.
-    echo "Waiting $(( HARD_RESTART_DELAY / 60 )) minutes before forcing a \"hard restart\"..."
+    echo "Waiting $(( HARD_RESTART_DELAY / 60 )) minutes before forcing a \"hard\" restart..."
     sleep "$HARD_RESTART_DELAY"
-    echo "$(( HARD_RESTART_DELAY / 60 )) minutes have elapsed since user was prompted to restart. Forcing \"hard\" restart..."
+    echo "$(( HARD_RESTART_DELAY / 60 )) minutes have elapsed since \"soft\" restart was attempted. Forcing \"hard\" restart..."
 
     USER_PIDS=$(pgrep -u "$USER_ID")
     LOGINWINDOW_PID=$(pgrep -x -u "$USER_ID" loginwindow)
@@ -217,12 +251,14 @@ trigger_restart() {
 
 # Ends script without applying any system updates.
 exit_without_updating () {
+
   echo "Running jamf recon..."
   "$jamf" recon
 
   "/bin/echo" "Unloading $BUNDLE_ID LaunchDaemon. Script will end here."
   "/bin/launchctl" unload -w "/private/tmp/$BUNDLE_ID.plist"
   exit 0
+
 }
 
 
@@ -253,31 +289,28 @@ if [[ -z $jamf ]]; then
     BAILOUT=true
 fi
 
-# Bail out if PListBuddy doesn't exist.
-PListBuddy="/usr/libexec/PListBuddy"
-if [[ ! -x $PListBuddy ]]; then
-    echo "[ERROR] PListBuddy could not be found."
-    BAILOUT=true
-fi
-
-# Determine OS X version.
+# Determine macOS version.
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | awk -F . '{print $2}')
 
-# If the macOS version is not 10.8 through 10.14, this script may not work. When
-# new versions of macOS are released, this logic should be updated after the
-# script has been tested successfully.
-if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 8 ]] || [[ "$OS_MAJOR" -lt 10 ]]; then
-    echo "[ERROR] This script requires at least OS X 10.8. This Mac has $OS_MAJOR.$OS_MINOR."
+# If the macOS version is not 10.12 through 10.14, this script may not work.
+# When new versions of macOS are released, this logic should be updated after
+# the script has been tested successfully.
+if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 12 ]] || [[ "$OS_MAJOR" -lt 10 ]]; then
+    echo "[ERROR] This script requires at least macOS 10.12. This Mac has $OS_MAJOR.$OS_MINOR."
     BAILOUT=true
 elif [[ "$OS_MAJOR" -gt 10 ]] || [[ "$OS_MINOR" -gt 14 ]]; then
     echo "[ERROR] This script has been tested through macOS 10.14 only. This Mac has $OS_MAJOR.$OS_MINOR."
     BAILOUT=true
 else
     if [[ "$OS_MINOR" -lt 14 ]]; then
-        MSG_RESTART="${MSG_RESTART//%UPDATE_MECHANISM%/App Store > Updates}"
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/App Store > Updates}"
+        MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/App Store > Updates}"
+        MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/App Store > Updates}"
     else
-        MSG_RESTART="${MSG_RESTART//%UPDATE_MECHANISM%/System Preferences > Software Update}"
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/System Preferences > Software Update}"
+        MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/System Preferences > Software Update}"
+        MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/System Preferences > Software Update}"
     fi
 fi
 
@@ -299,24 +332,22 @@ fi
 if [[ "$BAILOUT" == "true" ]]; then
     START_INTERVAL=$(defaults read /Library/LaunchDaemons/$BUNDLE_ID.plist StartInterval 2>/dev/null)
     if [[ $? -eq 0 ]]; then
-        echo "Stopping due to errors, but will try again in $(convertsecs "$START_INTERVAL")."
+        echo "Stopping due to errors, but will try again in $(convert_seconds "$START_INTERVAL")."
     else
         echo "Stopping due to errors."
     fi
     exit 1
+else
+    echo "Validation and error checking passed. Starting main process..."
 fi
 
 
 ################################ MAIN PROCESS #################################
 
-echo "Validation and error checking passed. Starting main process..."
-
-# Validate logo file, if a path is provided.
-if [[ -z "$LOGO" ]]; then
-    echo "No logo provided. Using App Store icon."
-    LOGO="/Applications/App Store.app/Contents/Resources/AppIcon.icns"
-elif [[ ! -f "$LOGO" ]]; then
-    echo "No logo exists at specified path ($LOGO). Using App Store icon."
+# Validate logo file. If no logo is provided or if the file cannot be found at
+# specified path, default to the App Store icon.
+if [[ -z "$LOGO" ]] || [[ ! -f "$LOGO" ]]; then
+    echo "No logo provided, or no logo exists at specified path. Using App Store icon."
     LOGO="/Applications/App Store.app/Contents/Resources/AppIcon.icns"
 fi
 
@@ -330,7 +361,7 @@ fi
 # Calculate how much time remains until deferral deadline.
 DEFER_TIME_LEFT=$(( FORCE_DATE - $(date +%s) ))
 echo "Deferral deadline: $(date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$FORCE_DATE")"
-echo "Time remaining: $(convertsecs $DEFER_TIME_LEFT)"
+echo "Time remaining: $(convert_seconds $DEFER_TIME_LEFT)"
 
 # Check for updates, exit if none found, otherwise cache locally and continue.
 check_for_updates
@@ -373,7 +404,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
     # Show the install/defer prompt.
     echo "Prompting to install updates now or defer..."
-    PROMPT=$("$jamfHelper" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_OR_DEFER_HEADING" -description "$MSG_ACT_OR_DEFER" -button1 "Restart Now" -button2 "Defer" -defaultButton 2 -timeout 3600 -startlaunchd 2>/dev/null)
+    PROMPT=$("$jamfHelper" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_OR_DEFER_HEADING" -description "$MSG_ACT_OR_DEFER" -button1 "Run Updates" -button2 "Defer" -defaultButton 2 -timeout 3600 -startlaunchd 2>/dev/null)
     JAMFHELPER_PID=$!
 
     # Make a note of the amount of time the prompt was shown onscreen.
@@ -384,7 +415,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
     if [[ -n $PROMPT_ELAPSED_SEC && $PROMPT_ELAPSED_SEC -eq 0 ]]; then
         PROMPT_ELAPSED_STR="immediately"
     elif [[ -n $PROMPT_ELAPSED_SEC ]]; then
-        PROMPT_ELAPSED_STR="after $(convertsecs "$PROMPT_ELAPSED_SEC")"
+        PROMPT_ELAPSED_STR="after $(convert_seconds "$PROMPT_ELAPSED_SEC")"
     elif [[ -z $PROMPT_ELAPSED_SEC ]]; then
         PROMPT_ELAPSED_STR="after an unknown amount of time"
         echo "[WARNING] Unable to determine elapsed time between prompt and action."
@@ -400,7 +431,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
         echo "[ERROR] jamfHelper returned code $PROMPT $PROMPT_ELAPSED_STR. It's unlikely that the user responded that quickly."
         exit 1
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 0 ]]; then
-        echo "User clicked Restart Now $PROMPT_ELAPSED_STR."
+        echo "User clicked Run Updates $PROMPT_ELAPSED_STR."
         defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null
         run_updates
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 1 ]]; then
@@ -426,7 +457,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
     elif [[ -z $PROMPT ]]; then # $PROMPT is not defined
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "[ERROR] jamfHelper returned no value $PROMPT_ELAPSED_STR. Restart Now/Defer response was not captured. This may be because the user logged out without clicking Restart Now/Defer."
+        echo "[ERROR] jamfHelper returned no value $PROMPT_ELAPSED_STR. Run Updates/Defer response was not captured. This may be because the user logged out without clicking Run Updates/Defer."
         exit 1
     else
         # Kill the jamfHelper prompt.
@@ -438,8 +469,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
 else
     # If no deferral time remains, force installation of updates now.
     echo "No deferral time remains."
-    clean_up
-    display_please_restart_msg
+    display_act_msg
 fi
 
 exit 0
