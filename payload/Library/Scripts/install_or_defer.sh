@@ -13,8 +13,8 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-01-11
-#         Version:  2.1
+#   Last Modified:  2019-02-12
+#         Version:  2.1.1
 #
 ###
 
@@ -26,7 +26,7 @@
 PLIST="/Library/Preferences/com.elliotjordan.install_or_defer"
 
 # (Optional) Path to a logo that will be used in messaging. Recommend 512px,
-# PNG format. If no logo is provided, the App Store icon will be used.
+# PNG format. If no logo is provided, the Software Update icon will be used.
 LOGO=""
 
 # The identifier of the LaunchDaemon that is used to call this script, which
@@ -132,7 +132,7 @@ check_for_updates () {
 
     # Download updates (all updates if a restart is required for any, otherwise
     # just recommended updates).
-    echo "Pre-downloading $installWhich system updates..."
+    echo "Caching $installWhich system updates..."
     softwareupdate --download --$installWhich
 
 }
@@ -184,17 +184,17 @@ EOF
 # Displays HUD with updating message and runs all cached updates.
 run_updates () {
 
-  echo "Running $installWhich system updates..."
-  "$jamfHelper" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
-  softwareupdate --install --$installWhich
-  echo "Finished running updates."
-  killall jamfHelper 2>/dev/null
-  clean_up
+    echo "Running $installWhich system updates..."
+    "$jamfHelper" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
+    softwareupdate --install --$installWhich
+    echo "Finished running updates."
+    killall jamfHelper 2>/dev/null
+    clean_up
 
-  # Trigger restart if script ran an update which requires it.
-  if [[ "$installWhich" = "all" ]]; then
-      trigger_restart
-  fi
+    # Trigger restart if script ran an update which requires it.
+    if [[ "$installWhich" = "all" ]]; then
+        trigger_restart
+    fi
 
 }
 
@@ -252,12 +252,12 @@ trigger_restart () {
 # Ends script without applying any system updates.
 exit_without_updating () {
 
-  echo "Running jamf recon..."
-  "$jamf" recon
+    echo "Running jamf recon..."
+    "$jamf" recon
 
-  "/bin/echo" "Unloading $BUNDLE_ID LaunchDaemon. Script will end here."
-  "/bin/launchctl" unload -w "/private/tmp/$BUNDLE_ID.plist"
-  exit 0
+    "/bin/echo" "Unloading $BUNDLE_ID LaunchDaemon. Script will end here."
+    "/bin/launchctl" unload -w "/private/tmp/$BUNDLE_ID.plist"
+    exit 0
 
 }
 
@@ -304,13 +304,13 @@ elif [[ "$OS_MAJOR" -gt 10 ]] || [[ "$OS_MINOR" -gt 14 ]]; then
     BAILOUT=true
 else
     if [[ "$OS_MINOR" -lt 14 ]]; then
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/App Store > Updates}"
-        MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/App Store > Updates}"
-        MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/App Store > Updates}"
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/App Store \> Updates}"
+        MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/App Store \> Updates}"
+        MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/App Store \> Updates}"
     else
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/System Preferences > Software Update}"
-        MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/System Preferences > Software Update}"
-        MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/System Preferences > Software Update}"
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/System Preferences \> Software Update}"
+        MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/System Preferences \> Software Update}"
+        MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/System Preferences \> Software Update}"
     fi
 fi
 
@@ -345,10 +345,10 @@ fi
 ################################ MAIN PROCESS #################################
 
 # Validate logo file. If no logo is provided or if the file cannot be found at
-# specified path, default to the App Store icon.
+# specified path, default to the Software Update icon.
 if [[ -z "$LOGO" ]] || [[ ! -f "$LOGO" ]]; then
-    echo "No logo provided, or no logo exists at specified path. Using App Store icon."
-    LOGO="/Applications/App Store.app/Contents/Resources/AppIcon.icns"
+    echo "No logo provided, or no logo exists at specified path. Using Software Update icon."
+    LOGO="/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
 fi
 
 # Perform first run tasks, including calculating deadline.
@@ -363,9 +363,6 @@ DEFER_TIME_LEFT=$(( FORCE_DATE - $(date +%s) ))
 echo "Deferral deadline: $(date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$FORCE_DATE")"
 echo "Time remaining: $(convert_seconds $DEFER_TIME_LEFT)"
 
-# Check for updates, exit if none found, otherwise cache locally and continue.
-check_for_updates
-
 # Get the "deferred until" timestamp, if one exists.
 DEFERRED_UNTIL=$(defaults read "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null)
 if [[ -n "$DEFERRED_UNTIL" ]] && (( DEFERRED_UNTIL > $(date +%s) && FORCE_DATE > DEFERRED_UNTIL )); then
@@ -375,6 +372,9 @@ if [[ -n "$DEFERRED_UNTIL" ]] && (( DEFERRED_UNTIL > $(date +%s) && FORCE_DATE >
     echo "The next prompt is deferred until after $(date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$DEFERRED_UNTIL")."
     exit 0
 fi
+
+# Check for updates, exit if none found, otherwise cache locally and continue.
+check_for_updates
 
 # Make a note of the time before displaying the prompt.
 PROMPT_START=$(date +%s)
