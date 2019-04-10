@@ -13,8 +13,8 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-01-11
-#         Version:  2.1
+#   Last Modified:  2019-04-01
+#         Version:  2.1.1
 #
 ###
 
@@ -186,14 +186,20 @@ run_updates () {
 
   echo "Running $installWhich system updates..."
   "$jamfHelper" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
-  softwareupdate --install --$installWhich
+  updateOutputCapture="$(softwareupdate --install --$installWhich 2>&1)"
   echo "Finished running updates."
   killall jamfHelper 2>/dev/null
   clean_up
 
   # Trigger restart if script ran an update which requires it.
   if [[ "$installWhich" = "all" ]]; then
-      trigger_restart
+      # Shut down the Mac if BridgeOS received an update requiring it.
+      if [[ "$updateOutputCapture" =~ "select Shut Down from the Apple menu" ]]; then
+          trigger_restart "shut down"
+      # Otherwise, restart the Mac.
+      else
+          trigger_restart "restart"
+      fi
   fi
 
 }
@@ -216,21 +222,21 @@ clean_up () {
 trigger_restart () {
 
     # Immediately attempt a "soft" restart.
-    echo "Attempting a \"soft\" restart..."
+    echo "Attempting a \"soft\" $1..."
     CURRENT_USER=$(/usr/bin/stat -f%Su /dev/console)
     USER_ID=$(id -u "$CURRENT_USER")
     if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -le 9 ]]; then
         LOGINWINDOW_PID=$(pgrep -x -u "$USER_ID" loginwindow)
-        launchctl bsexec "$LOGINWINDOW_PID" osascript -e 'tell application "System Events" to restart'
+        launchctl bsexec "$LOGINWINDOW_PID" osascript -e "tell application \"System Events\" to $1"
     elif [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -gt 9 ]]; then
-        launchctl asuser "$USER_ID" osascript -e 'tell application "System Events" to restart'
+        launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
     fi
 
     # After specified delay, kill all apps forcibly, which clears the way for
     # an unobstructed restart.
-    echo "Waiting $(( HARD_RESTART_DELAY / 60 )) minutes before forcing a \"hard\" restart..."
+    echo "Waiting $(( HARD_RESTART_DELAY / 60 )) minutes before forcing a \"hard\" $1..."
     sleep "$HARD_RESTART_DELAY"
-    echo "$(( HARD_RESTART_DELAY / 60 )) minutes have elapsed since \"soft\" restart was attempted. Forcing \"hard\" restart..."
+    echo "$(( HARD_RESTART_DELAY / 60 )) minutes have elapsed since \"soft\" $1 was attempted. Forcing \"hard\" $1..."
 
     USER_PIDS=$(pgrep -u "$USER_ID")
     LOGINWINDOW_PID=$(pgrep -x -u "$USER_ID" loginwindow)
@@ -241,9 +247,9 @@ trigger_restart () {
         fi
     done
     if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -le 9 ]]; then
-        launchctl bsexec "$LOGINWINDOW_PID" osascript -e 'tell application "System Events" to restart'
+        launchctl bsexec "$LOGINWINDOW_PID" osascript -e "tell application \"System Events\" to $1"
     elif [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -gt 9 ]]; then
-        launchctl asuser "$USER_ID" osascript -e 'tell application "System Events" to restart'
+        launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
     fi
     # Mac should restart now, ending this script and installing updates.
 
