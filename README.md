@@ -16,7 +16,7 @@ Here's what needs to be in place in order to use this framework:
 - The current version of this framework has been tested only on __macOS 10.12 through 10.14__, but will most likely work on 10.8+ (note that any changes to install-or-defer will likely not be tested thoroughly in versions of macOS which no longer receive security updates from Apple, but older versions should continue to function normally in those environments).
 - Target Macs must be __enrolled in Jamf Pro__ and have the `jamfHelper` binary installed.
 - We're assuming that __an automatic restart is desired when updates require it__.
-- Optional: A __company logo__ graphic file in a "stash" on each Mac (if no logo is provided, the App Store icon will be used).
+- Optional: A __company logo__ graphic file in a "stash" on each Mac (if no logo is provided, the Software Update icon will be used).
 - Optional but recommended: A __Mac with Content Caching service active__ at all major office locations. This will conserve network bandwidth and improve the download speed of updates.
 
 
@@ -32,7 +32,7 @@ Here's how everything works, once it's configured:
     2. If a required update is found, the script runs `softwareupdate --download --all` or `softwareupdate --download --recommended` to cache all available recommended Apple updates in the background (`--all` if a restart is required for any updates, `--recommended` if not).
     3. An onscreen message appears, indicating the new updates are required to be installed. Two options are given: __Run Updates__ or __Defer__.
 
-        (Note: Your company logo will appear in place of the App Store icon, if you specify the `LOGO` path.)
+        (Note: Your company logo will appear in place of the Software Update icon, if you specify the `LOGO` path.)
 
         ![Install or Defer](img/install-or-defer.png)
     4. If the user clicks __Defer__, the prompt will be dismissed. The next prompt will reappear after 4 hours (customizable). Users can defer for up to 72 hours (also customizable). After the deferral period has ended, the Mac automatically runs the cached updates.
@@ -68,7 +68,7 @@ There are several variables in the script that should be customized to your orga
     Path to a plist file that is used to store settings locally. Omit ".plist" extension.
 
 - `LOGO`
-    (Optional) Path to a logo that will be used in messaging. Recommend 512px, PNG format. If no logo is provided, the App Store icon will be used (as shown in the screenshots above).
+    (Optional) Path to a logo that will be used in messaging. Recommend 512px, PNG format. If no logo is provided, the Software Update icon will be used (as shown in the screenshots above).
 
 - `BUNDLE_ID`
     The identifier of the LaunchDaemon that is used to call this script, which should match the file in the __payload/Library/LaunchDaemons__ folder. Omit ".plist" extension.
@@ -81,20 +81,11 @@ There are several variables in the script that should be customized to your orga
 - `MSG_ACT_OR_DEFER`
     The body of the message users will receive when updates are available.
 
-    - This message uses the following dynamic substitutions:
-        - `%DEFER_HOURS%` will be automatically replaced by the number of hours remaining in the deferral period.
-        - The section in the {{double curly brackets}} will be removed when this message is displayed for the final time before the deferral deadline.
-        - The section in the <<double comparison operators>> will be removed if a restart is not required.
-
 - `MSG_ACT_HEADING`
     The heading/title of the message users will receive when they must run updates immediately.
 
 - `MSG_ACT`
     The body of the message users will receive when they must run updates immediately.
-
-    - This message uses the following dynamic substitution:
-        - `%UPDATE_MECHANISM%` will be automatically replaced by either "App Store > Updates" or "System Preferences > Software Update" depending on the version of macOS.
-        - The section in the <<double comparison operators>> will be removed if a restart is not required.
 
 - `MSG_UPDATING_HEADING`
     The heading/title of the message users will receive when updates are running in the background.
@@ -102,9 +93,12 @@ There are several variables in the script that should be customized to your orga
 - `MSG_UPDATING`
     The body of the message users will receive when updates are running in the background.
 
-    - This message uses the following dynamic substitution:
-        - `%UPDATE_MECHANISM%` will be automatically replaced by either "App Store > Updates" or "System Preferences > Software Update" depending on the version of macOS.
-        - The section in the <<double comparison operators>> will be removed if a restart is not required.
+The above messages use the following dynamic substitutions:
+
+- `%DEFER_HOURS%` will be automatically replaced by the number of hours remaining in the deferral period.
+- `%UPDATE_MECHANISM%` will be automatically replaced by either "App Store > Updates" or "System Preferences > Software Update" depending on the version of macOS.
+- The section in the `<<double comparison operators>>` will be removed if a restart is not required.
+- The section in the `{{double curly brackets}}` will be removed when this message is displayed for the final time before the deferral deadline.
 
 ### Timing
 
@@ -236,14 +230,16 @@ Create the following two policies:
     ```
     Starting install_or_defer.sh script. Performing validation and error checking...
     Validation and error checking passed. Starting main process...
-    Deferral deadline: 2016-09-11 16:30:53
+    Deferral deadline: 2019-02-12 14:54:45
     Time remaining: 72h:00m:00s
     Checking for pending system updates...
-    Pre-downloading all system updates...
+    Caching all system updates...
     Software Update Tool
     Copyright 2002-2015 Apple Inc.
+
     Finding available software
-    Downloaded Security Update 2016-001
+
+    Downloaded Security Update 2019-001
     Done.
     Prompting to install updates now or defer...
     ```
@@ -307,7 +303,7 @@ Once the script is debugged and updated, you can generate a new installer, uploa
 ## Miscellaneous Notes
 
 - Feel free to change the `com.elliotjordan` style identifier to match your company instead. If you do this, make sure to update the filenames of the LaunchDaemons, and their corresponding file paths in the preinstall and postinstall scripts.
-- You can also specify a different default logo, if you'd rather not use the App Store icon. `jamfHelper` supports .icns and .png files.
+- You can also specify a different default logo, if you'd rather not use the Software Update icon. `jamfHelper` supports .icns and .png files.
 - If you encounter any issues or have questions, please open an issue on this GitHub repo.
 
 Enjoy!
