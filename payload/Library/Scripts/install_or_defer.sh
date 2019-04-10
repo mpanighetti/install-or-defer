@@ -13,8 +13,8 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-02-12
-#         Version:  2.1.1
+#   Last Modified:  2019-04-10
+#         Version:  2.1.2
 #
 ###
 
@@ -46,8 +46,8 @@ BUNDLE_ID="com.elliotjordan.install_or_defer"
 #     is not required for the pending updates.
 #   - %UPDATE_MECHANISM% will be automatically replaced depending on macOS
 #     version:
-#     - macOS 10.13 or lower: "App Store > Updates"
-#     - macOS 10.14+: "System Preferences > Software Update"
+#     - macOS 10.13 or lower: "App Store - Updates"
+#     - macOS 10.14+: "System Preferences - Software Update"
 
 # The message users will receive when updates are available, shown above the
 # "Run Updates" and "Defer" buttons.
@@ -186,14 +186,20 @@ run_updates () {
 
     echo "Running $installWhich system updates..."
     "$jamfHelper" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
-    softwareupdate --install --$installWhich
+    updateOutputCapture="$(softwareupdate --install --$installWhich 2>&1)"
     echo "Finished running updates."
     killall jamfHelper 2>/dev/null
     clean_up
 
     # Trigger restart if script ran an update which requires it.
     if [[ "$installWhich" = "all" ]]; then
-        trigger_restart
+        # Shut down the Mac if BridgeOS received an update requiring it.
+        if [[ "$updateOutputCapture" =~ "select Shut Down from the Apple menu" ]]; then
+            trigger_restart "shut down"
+        # Otherwise, restart the Mac.
+        else
+            trigger_restart "restart"
+        fi
     fi
 
 }
@@ -216,21 +222,21 @@ clean_up () {
 trigger_restart () {
 
     # Immediately attempt a "soft" restart.
-    echo "Attempting a \"soft\" restart..."
+    echo "Attempting a \"soft\" $1..."
     CURRENT_USER=$(/usr/bin/stat -f%Su /dev/console)
     USER_ID=$(id -u "$CURRENT_USER")
     if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -le 9 ]]; then
         LOGINWINDOW_PID=$(pgrep -x -u "$USER_ID" loginwindow)
-        launchctl bsexec "$LOGINWINDOW_PID" osascript -e 'tell application "System Events" to restart'
+        launchctl bsexec "$LOGINWINDOW_PID" osascript -e "tell application \"System Events\" to $1"
     elif [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -gt 9 ]]; then
-        launchctl asuser "$USER_ID" osascript -e 'tell application "System Events" to restart'
+        launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
     fi
 
     # After specified delay, kill all apps forcibly, which clears the way for
     # an unobstructed restart.
-    echo "Waiting $(( HARD_RESTART_DELAY / 60 )) minutes before forcing a \"hard\" restart..."
+    echo "Waiting $(( HARD_RESTART_DELAY / 60 )) minutes before forcing a \"hard\" $1..."
     sleep "$HARD_RESTART_DELAY"
-    echo "$(( HARD_RESTART_DELAY / 60 )) minutes have elapsed since \"soft\" restart was attempted. Forcing \"hard\" restart..."
+    echo "$(( HARD_RESTART_DELAY / 60 )) minutes have elapsed since \"soft\" $1 was attempted. Forcing \"hard\" $1..."
 
     USER_PIDS=$(pgrep -u "$USER_ID")
     LOGINWINDOW_PID=$(pgrep -x -u "$USER_ID" loginwindow)
@@ -241,9 +247,9 @@ trigger_restart () {
         fi
     done
     if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -le 9 ]]; then
-        launchctl bsexec "$LOGINWINDOW_PID" osascript -e 'tell application "System Events" to restart'
+        launchctl bsexec "$LOGINWINDOW_PID" osascript -e "tell application \"System Events\" to $1"
     elif [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -gt 9 ]]; then
-        launchctl asuser "$USER_ID" osascript -e 'tell application "System Events" to restart'
+        launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
     fi
     # Mac should restart now, ending this script and installing updates.
 
@@ -304,13 +310,13 @@ elif [[ "$OS_MAJOR" -gt 10 ]] || [[ "$OS_MINOR" -gt 14 ]]; then
     BAILOUT=true
 else
     if [[ "$OS_MINOR" -lt 14 ]]; then
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/App Store \> Updates}"
-        MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/App Store \> Updates}"
-        MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/App Store \> Updates}"
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/App Store - Updates}"
+        MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/App Store - Updates}"
+        MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/App Store - Updates}"
     else
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/System Preferences \> Software Update}"
-        MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/System Preferences \> Software Update}"
-        MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/System Preferences \> Software Update}"
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/System Preferences - Software Update}"
+        MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/System Preferences - Software Update}"
+        MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/System Preferences - Software Update}"
     fi
 fi
 
