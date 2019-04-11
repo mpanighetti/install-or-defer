@@ -13,8 +13,8 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-04-10
-#         Version:  2.1.2
+#   Last Modified:  2019-04-11
+#         Version:  2.1.3
 #
 ###
 
@@ -133,7 +133,7 @@ check_for_updates () {
     # Download updates (all updates if a restart is required for any, otherwise
     # just recommended updates).
     echo "Caching $installWhich system updates..."
-    softwareupdate --download --$installWhich
+    softwareupdate --download --$installWhich --no-scan
 
 }
 
@@ -186,7 +186,7 @@ run_updates () {
 
     echo "Running $installWhich system updates..."
     "$jamfHelper" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
-    updateOutputCapture="$(softwareupdate --install --$installWhich 2>&1)"
+    updateOutputCapture="$(softwareupdate --install --$installWhich --no-scan 2>&1)"
     echo "Finished running updates."
     killall jamfHelper 2>/dev/null
     clean_up
