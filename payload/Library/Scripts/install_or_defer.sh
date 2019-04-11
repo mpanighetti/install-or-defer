@@ -13,8 +13,8 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-04-10
-#         Version:  2.1.2
+#   Last Modified:  2019-04-11
+#         Version:  2.1.3
 #
 ###
 
