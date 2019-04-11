@@ -5,30 +5,35 @@ All notable changes to this project will be documented in this file. This projec
 
 ## [Unreleased] - TBD
 
+Nothing yet.
+
+
+## [2.1.3] - 2019-04-11
+
 ### Added
 
 - added `--no-scan` flag to `--download` and `--install` commands (avoids repeatedly checking for updates after initial `softwareupdate --list`, speeding up script runtime)
 
 
-## [2.1.2] - 2019-04-11
+## [2.1.2] - 2019-04-10
 
 ### Added
 
 - added shutdown workflow for BridgeOS updates (detects string  in `softwareupdate --install --all` output indicating a shutdown is required rather than a restart, changes restart function to shut down instead) #10
 
 
-## [2.1.1] - 2019-04-11
+## [2.1.1] - 2019-04-10
 
 ### Changed
 
 - moved update check after deferral period check (reduces amount of `softwareupdate` processes running in the background between deferral periods)
 - switched to Software Update icon as default alert branding
 - reworded some `echo` output
-- consolidated dynamic substitiution notes in README
+- consolidated dynamic substitution notes in README
 - consistent indent spacing in script
 
 
-## [2.1] - 2019-04-11
+## [2.1] - 2019-01-19
 
 ### Added
 
@@ -51,7 +56,7 @@ All notable changes to this project will be documented in this file. This projec
 - No longer support 10.11 and earlier
 
 
-## [2.0] - 2019-04-11
+## [2.0] - 2019-01-10
 
 ### Added
 
@@ -75,19 +80,20 @@ All notable changes to this project will be documented in this file. This projec
 - removed all `/Library/Updates` dependencies as that path is now under SIP in macOS 10.14+
 
 
-## [1.0.1] - 2019-04-11
+## [1.0.1] - 2017-07-24
 
 ### Changed
 
 - specifies full path to helper script #2
 
 
-## 1.0.0 - 2019-04-11
+## 1.0.0 - 2017-03-02
 
 - Initial release
 
 
-[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.1.2...HEAD
+[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.1.3...HEAD
+[2.1.3]: https://github.com/homebysix/install-or-defer/compare/v2.1.2...v2.1.3
 [2.1.2]: https://github.com/homebysix/install-or-defer/compare/v2.1.1...v2.1.2
 [2.1.1]: https://github.com/homebysix/install-or-defer/compare/v2.1...v2.1.1
 [2.1]: https://github.com/homebysix/install-or-defer/compare/v2.0...v2.1
