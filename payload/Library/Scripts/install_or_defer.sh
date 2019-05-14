@@ -13,8 +13,8 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-04-11
-#         Version:  2.1.3
+#   Last Modified:  2019-05-14
+#         Version:  2.1.4
 #
 ###
 
@@ -261,8 +261,13 @@ exit_without_updating () {
     echo "Running jamf recon..."
     "$jamf" recon
 
-    "/bin/echo" "Unloading $BUNDLE_ID LaunchDaemon. Script will end here."
-    "/bin/launchctl" unload -w "/private/tmp/$BUNDLE_ID.plist"
+    clean_up
+
+    if [[ -e "/private/tmp/$BUNDLE_ID.plist" ]]; then
+      "/bin/echo" "Unloading $BUNDLE_ID LaunchDaemon..."
+      "/bin/launchctl" unload -w "/private/tmp/$BUNDLE_ID.plist"
+    fi
+    "/bin/echo" "Script will end here."
     exit 0
 
 }

@@ -1,11 +1,21 @@
 #!/bin/bash
 
-# Copy all output to the system log for diagnostic purposes.
-exec 1> >(logger -s -t "$(basename "$0")") 2>&1
-
+PLIST="$3/Library/Preferences/com.elliotjordan.install_or_defer"
 HELPER_LD="$3/private/tmp/com.elliotjordan.install_or_defer_helper.plist"
 MAIN_LD="$3/Library/LaunchDaemons/com.elliotjordan.install_or_defer.plist"
 
+# Copy all output to the system log for diagnostic purposes.
+exec 1> >(logger -s -t "$(basename "$0")") 2>&1
+
+# Kill jamfHelper process to close all current notifications.
+echo "Killing any active jamfHelper notifications..."
+killall jamfHelper 2>"/dev/null"
+
+# Clean up plist values.
+echo "Cleaning up all stored plist values..."
+defaults delete "$PLIST" 2>"/dev/null"
+
+# Unload LaunchDaemons.
 if [[ -f "$HELPER_LD" ]]; then
     echo "Unloading and removing $HELPER_LD..."
     launchctl unload -w "$HELPER_LD"
