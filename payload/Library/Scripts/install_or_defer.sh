@@ -263,8 +263,11 @@ exit_without_updating () {
 
     clean_up
 
-    "/bin/echo" "Unloading $BUNDLE_ID LaunchDaemon. Script will end here."
-    "/bin/launchctl" unload -w "/private/tmp/$BUNDLE_ID.plist"
+    if [[ -e "/private/tmp/$BUNDLE_ID.plist" ]]; then
+      "/bin/echo" "Unloading $BUNDLE_ID LaunchDaemon..."
+      "/bin/launchctl" unload -w "/private/tmp/$BUNDLE_ID.plist"
+    fi
+    "/bin/echo" "Script will end here."
     exit 0
 
 }
