@@ -9,11 +9,11 @@ exec 1> >(logger -s -t "$(basename "$0")") 2>&1
 
 # Kill jamfHelper process to close all current notifications.
 echo "Killing any active jamfHelper notifications..."
-killall jamfHelper 2>"$3/dev/null"
+killall jamfHelper 2>"/dev/null"
 
 # Clean up plist values.
 echo "Cleaning up all stored plist values..."
-defaults delete "$PLIST"
+defaults delete "$PLIST" 2>"/dev/null"
 
 # Unload LaunchDaemons.
 if [[ -f "$HELPER_LD" ]]; then
