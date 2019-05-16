@@ -13,7 +13,7 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-05-15
+#   Last Modified:  2019-05-16
 #         Version:  2.2
 #
 ###
@@ -72,7 +72,9 @@ MSG_UPDATING="Running system updates in the background.<< Your Mac will restart 
 #################################### TIMING ###################################
 
 # Number of seconds between the first script run and the updates being forced.
-MAX_DEFERRAL_TIME_PLIST=$(defaults read "$PLIST" MaxDeferralTime 2>/dev/null)
+# To set this to a custom value, make a configuration profile enforcing the
+# MAX_DEFERRAL_TIME attribute in $PLIST to a positive integer of your choice.
+MAX_DEFERRAL_TIME_PLIST=$(defaults read "$PLIST" MAX_DEFERRAL_TIME 2>/dev/null)
 if (( MAX_DEFERRAL_TIME_PLIST <= 0 )); then
     echo "Max deferral time undefined, or not set to a positive integer. Setting to default value."
     MAX_DEFERRAL_TIME=$(( 60 * 60 * 24 * 3 )) # (259200 = 3 days)

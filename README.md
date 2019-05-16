@@ -105,6 +105,8 @@ The above messages use the following dynamic substitutions:
 - `MAX_DEFERRAL_TIME`
     Number of seconds between the first script run and the updates being forced.
 
+    You can customize this value (including making it a different value for multiple groups of Macs) with one or more configuration profiles setting the `MAX_DEFERRAL_TIME` attribute in `$PLIST` to a positive integer of your choice.
+
 - `EACH_DEFER`
     When the user clicks "Defer" the next prompt is delayed by this much time.
 
