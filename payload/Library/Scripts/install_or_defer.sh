@@ -72,10 +72,12 @@ MSG_UPDATING="Running system updates in the background.<< Your Mac will restart 
 #################################### TIMING ###################################
 
 # Number of seconds between the first script run and the updates being forced.
-MAX_DEFERRAL_TIME=$(defaults read "$PLIST" MaxDeferralTime 2>/dev/null)
-if (( MAX_DEFERRAL_TIME <= 0 )); then
-    echo "Max deferral time must be a positive integer. Setting to default value."
+MAX_DEFERRAL_TIME_PLIST=$(defaults read "$PLIST" MaxDeferralTime 2>/dev/null)
+if (( MAX_DEFERRAL_TIME_PLIST <= 0 )); then
+    echo "Max deferral time undefined, or not set to a positive integer. Setting to default value."
     MAX_DEFERRAL_TIME=$(( 60 * 60 * 24 * 3 )) # (259200 = 3 days)
+else
+    MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_PLIST"
 fi
 echo "Maximum deferral time: $(convert_seconds $MAX_DEFERRAL_TIME)"
 
