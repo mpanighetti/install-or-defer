@@ -72,16 +72,7 @@ MSG_UPDATING="Running system updates in the background.<< Your Mac will restart 
 #################################### TIMING ###################################
 
 # Number of seconds between the first script run and the updates being forced.
-# To set this to a custom value, make a configuration profile enforcing the
-# MAX_DEFERRAL_TIME attribute in $PLIST to a positive integer of your choice.
-MAX_DEFERRAL_TIME_PLIST=$(defaults read "$PLIST" MAX_DEFERRAL_TIME 2>/dev/null)
-if (( MAX_DEFERRAL_TIME_PLIST <= 0 )); then
-    echo "Max deferral time undefined, or not set to a positive integer. Setting to default value."
-    MAX_DEFERRAL_TIME=$(( 60 * 60 * 24 * 3 )) # (259200 = 3 days)
-else
-    MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_PLIST"
-fi
-echo "Maximum deferral time: $(convert_seconds $MAX_DEFERRAL_TIME)"
+MAX_DEFERRAL_TIME=$(( 60 * 60 * 24 * 3 )) # (259200 = 3 days)
 
 # When the user clicks "Defer" the next prompt is delayed by this much time.
 EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
@@ -370,6 +361,17 @@ if [[ -z "$LOGO" ]] || [[ ! -f "$LOGO" ]]; then
     echo "No logo provided, or no logo exists at specified path. Using Software Update icon."
     LOGO="/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
 fi
+
+# Validate max deferral time. To set this to a custom value, make a
+# configuration profile enforcing the MAX_DEFERRAL_TIME attribute in $PLIST to
+# a positive integer of your choice.
+MAX_DEFERRAL_TIME_PLIST=$(defaults read "$PLIST" MAX_DEFERRAL_TIME 2>/dev/null)
+if (( MAX_DEFERRAL_TIME_PLIST <= 0 )); then
+    echo "Max deferral time undefined, or not set to a positive integer. Using default value."
+else
+    MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_PLIST"
+fi
+echo "Maximum deferral time: $(convert_seconds $MAX_DEFERRAL_TIME)"
 
 # Perform first run tasks, including calculating deadline.
 FORCE_DATE=$(defaults read "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null)
