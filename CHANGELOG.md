@@ -8,6 +8,14 @@ All notable changes to this project will be documented in this file. This projec
 Nothing yet.
 
 
+## [2.1.4] - 2019-05-14
+
+### Changed
+
+- added cleanup tasks to preinstall script and `exit_without_updating` (ensures `AppleSoftwareUpdatesForcedAfter` attribute doesn't persist between script reinstalls)
+- made `$BUNDLE_ID` LaunchDaemon unload conditional on file existing (reduces error output)
+
+
 ## [2.1.3] - 2019-04-11
 
 ### Added
@@ -92,7 +100,8 @@ Nothing yet.
 - Initial release
 
 
-[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.1.3...HEAD
+[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.1.4...HEAD
+[2.1.4]: https://github.com/homebysix/install-or-defer/compare/v2.1.3...v2.1.4
 [2.1.3]: https://github.com/homebysix/install-or-defer/compare/v2.1.2...v2.1.3
 [2.1.2]: https://github.com/homebysix/install-or-defer/compare/v2.1.1...v2.1.2
 [2.1.1]: https://github.com/homebysix/install-or-defer/compare/v2.1...v2.1.1
