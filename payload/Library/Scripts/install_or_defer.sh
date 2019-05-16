@@ -94,9 +94,15 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # Created by: perreal (http://stackoverflow.com/users/390913/perreal)
 convert_seconds () {
 
-    ((h=${1}/3600))
-    ((m=(${1}%3600)/60))
-    ((s=${1}%60))
+    if [[ $1 -eq 0 ]]; then
+        h=0
+        m=0
+        s=0
+    else
+        ((h=${1}/3600))
+        ((m=(${1}%3600)/60))
+        ((s=${1}%60))
+    fi
     printf "%02dh:%02dm:%02ds\n" $h $m $s
 
 }
@@ -366,7 +372,7 @@ fi
 # configuration profile enforcing the MAX_DEFERRAL_TIME attribute in $PLIST to
 # a positive integer of your choice.
 MAX_DEFERRAL_TIME_PLIST=$(defaults read "$PLIST" MAX_DEFERRAL_TIME 2>/dev/null)
-if (( MAX_DEFERRAL_TIME_PLIST <= 0 )); then
+if (( MAX_DEFERRAL_TIME_PLIST < 0 )); then
     echo "Max deferral time undefined, or not set to a positive integer. Using default value."
 else
     MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_PLIST"
