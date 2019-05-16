@@ -13,10 +13,8 @@ killall jamfHelper 2>"/dev/null"
 
 # Clean up plist values.
 echo "Cleaning up stored plist values..."
-defaults delete "$PLIST" UpdatesForcedAfter 2>/dev/null
-defaults delete "$PLIST" UpdatesDeferredUntil 2>/dev/null
-defaults delete "$PLIST" ThirdPartyUpdatesRestartRequired 2>/dev/null
-defaults delete "$PLIST" ThirdPartyUpdatesRelaunchRequired 2>/dev/null
+defaults delete "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null
+defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null
 
 # Unload LaunchDaemons.
 if [[ -f "$HELPER_LD" ]]; then
