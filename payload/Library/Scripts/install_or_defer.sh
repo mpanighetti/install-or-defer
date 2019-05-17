@@ -332,6 +332,15 @@ if [[ $? -ne 0 ]]; then
     BAILOUT=true
 fi
 
+# Check if SUCatalog is available
+SUCatalog=$(python -c 'from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue("CatalogURL", "com.apple.SoftwareUpdate")')
+KernelVersion=$(uname -r)
+curl --user-agent "Darwin/$KernelVersion" -s --head --request GET "$SUCatalog" | grep "200 OK" > /dev/null
+if [[ $? -ne 0 ]]; then
+  echo "[ERROR] SUCatalog can not be reached."
+  BAILOUT=true
+fi
+
 # If FileVault encryption or decryption is in progress, installing updates that
 # require a restart can cause problems.
 if fdesetup status | grep -q "in progress"; then
