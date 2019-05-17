@@ -13,7 +13,7 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-05-16
+#   Last Modified:  2019-05-17
 #         Version:  2.2
 #
 ###
@@ -368,14 +368,20 @@ if [[ -z "$LOGO" ]] || [[ ! -f "$LOGO" ]]; then
     LOGO="/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
 fi
 
-# Validate max deferral time. To set this to a custom value, make a
-# configuration profile enforcing the MAX_DEFERRAL_TIME attribute in $PLIST to
-# a positive integer of your choice.
-MAX_DEFERRAL_TIME_PLIST=$(defaults read "$PLIST" MAX_DEFERRAL_TIME 2>/dev/null)
-if (( MAX_DEFERRAL_TIME_PLIST < 0 )); then
-    echo "Max deferral time undefined, or not set to a positive integer. Using default value."
+# Validate max deferral time and whether to skip deferral. To customize these
+# values, make a configuration profile enforcing the MAX_DEFERRAL_TIME (in
+# seconds) and skipDeferral (boolean) attributes in $PLIST to settings of your
+# choice.
+skipDeferral=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('SkipDeferral', 'com.elliotjordan.install_or_defer'))" 2>/dev/null)
+if [[ "$skipDeferral" = "True" ]]; then
+  MAX_DEFERRAL_TIME=0
 else
-    MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_PLIST"
+  MAX_DEFERRAL_TIME_CUSTOM=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('MAX_DEFERRAL_TIME', 'com.elliotjordan.install_or_defer'))" 2>/dev/null)
+  if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
+      MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
+  else
+      echo "Max deferral time undefined, or not set to a positive integer. Using default value."
+  fi
 fi
 echo "Maximum deferral time: $(convert_seconds $MAX_DEFERRAL_TIME)"
 
