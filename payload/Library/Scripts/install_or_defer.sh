@@ -374,14 +374,14 @@ fi
 # choice.
 skipDeferral=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('SkipDeferral', 'com.elliotjordan.install_or_defer'))" 2>/dev/null)
 if [[ "$skipDeferral" = "True" ]]; then
-  MAX_DEFERRAL_TIME=0
+    MAX_DEFERRAL_TIME=0
 else
-  MAX_DEFERRAL_TIME_CUSTOM=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('MAX_DEFERRAL_TIME', 'com.elliotjordan.install_or_defer'))" 2>/dev/null)
-  if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
-      MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
-  else
-      echo "Max deferral time undefined, or not set to a positive integer. Using default value."
-  fi
+    MAX_DEFERRAL_TIME_CUSTOM=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('MAX_DEFERRAL_TIME', 'com.elliotjordan.install_or_defer'))" 2>/dev/null)
+    if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
+        MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
+    else
+        echo "Max deferral time undefined, or not set to a positive integer. Using default value."
+    fi
 fi
 echo "Maximum deferral time: $(convert_seconds $MAX_DEFERRAL_TIME)"
 
