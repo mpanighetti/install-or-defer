@@ -332,13 +332,15 @@ if [[ $? -ne 0 ]]; then
     BAILOUT=true
 fi
 
-# Check if SUCatalog is available
+# Check if a custom CatalogURL is set and if it is available
 SUCatalog=$(python -c 'from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue("CatalogURL", "com.apple.SoftwareUpdate")')
-KernelVersion=$(uname -r)
-curl --user-agent "Darwin/$KernelVersion" -s --head --request GET "$SUCatalog" | grep "200 OK" > /dev/null
-if [[ $? -ne 0 ]]; then
-  echo "[ERROR] SUCatalog can not be reached."
-  BAILOUT=true
+if [ "$SUCatalog" != "None" ]; then
+  KernelVersion=$(uname -r)
+  curl --user-agent "Darwin/$KernelVersion" -s --head --request GET "$SUCatalog" | grep "200 OK" > /dev/null
+  if [[ $? -ne 0 ]]; then
+    echo "[ERROR] SUCatalog can not be reached."
+    BAILOUT=true
+  fi
 fi
 
 # If FileVault encryption or decryption is in progress, installing updates that
