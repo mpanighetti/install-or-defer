@@ -65,32 +65,41 @@ There are several variables in the script that should be customized to your orga
 ### File paths and identifiers
 
 - `PLIST`
+
     Path to a plist file that is used to store settings locally. Omit ".plist" extension.
 
 - `LOGO`
+
     (Optional) Path to a logo that will be used in messaging. Recommend 512px, PNG format. If no logo is provided, the Software Update icon will be used (as shown in the screenshots above).
 
 - `BUNDLE_ID`
+
     The identifier of the LaunchDaemon that is used to call this script, which should match the file in the __payload/Library/LaunchDaemons__ folder. Omit ".plist" extension.
 
 ### Messaging
 
 - `MSG_ACT_OR_DEFER_HEADING`
+
     The heading/title of the message users will receive when updates are available.
 
 - `MSG_ACT_OR_DEFER`
+
     The body of the message users will receive when updates are available.
 
 - `MSG_ACT_HEADING`
+
     The heading/title of the message users will receive when they must run updates immediately.
 
 - `MSG_ACT`
+
     The body of the message users will receive when they must run updates immediately.
 
 - `MSG_UPDATING_HEADING`
+
     The heading/title of the message users will receive when updates are running in the background.
 
 - `MSG_UPDATING`
+
     The body of the message users will receive when updates are running in the background.
 
 The above messages use the following dynamic substitutions:
@@ -103,15 +112,21 @@ The above messages use the following dynamic substitutions:
 ### Timing
 
 - `MAX_DEFERRAL_TIME`
+
     Number of seconds between the first script run and the updates being forced.
 
+    You can customize this value (including making it a different value for multiple groups of Macs) with one or more configuration profiles setting the `MaxDeferralTime` attribute in `$PLIST` to a positive integer of your choice. To disable deferral entirely (useful for script testing purposes), set the `SkipDeferral` attribute to `true`.
+
 - `EACH_DEFER`
+
     When the user clicks "Defer" the next prompt is delayed by this much time.
 
 - `UPDATE_DELAY`
+
     The number of seconds to wait between displaying the "run updates" message and applying updates, then attempting a soft restart.
 
 - `HARD_RESTART_DELAY`
+
     The number of seconds to wait between attempting a soft restart and forcing a restart.
 
 

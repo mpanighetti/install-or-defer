@@ -12,8 +12,9 @@ echo "Killing any active jamfHelper notifications..."
 killall jamfHelper 2>"/dev/null"
 
 # Clean up plist values.
-echo "Cleaning up all stored plist values..."
-defaults delete "$PLIST" 2>"/dev/null"
+echo "Cleaning up stored plist values..."
+defaults delete "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null
+defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null
 
 # Unload LaunchDaemons.
 if [[ -f "$HELPER_LD" ]]; then

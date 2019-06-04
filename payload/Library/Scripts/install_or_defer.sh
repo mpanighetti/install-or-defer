@@ -13,8 +13,8 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-05-14
-#         Version:  2.1.4
+#   Last Modified:  2019-05-17
+#         Version:  2.2
 #
 ###
 
@@ -94,10 +94,16 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # Created by: perreal (http://stackoverflow.com/users/390913/perreal)
 convert_seconds () {
 
-    ((h=${1}/3600))
-    ((m=(${1}%3600)/60))
-    ((s=${1}%60))
-    printf "%02dh:%02dm:%02ds\n" $h $m $s
+    if [[ $1 -eq 0 ]]; then
+        HOURS=0
+        MINUTES=0
+        SECONDS=0
+    else
+        ((HOURS=${1}/3600))
+        ((MINUTES=(${1}%3600)/60))
+        ((SECONDS=${1}%60))
+    fi
+    printf "%02dh:%02dm:%02ds\n" $HOURS $MINUTES $SECONDS
 
 }
 
@@ -106,19 +112,19 @@ convert_seconds () {
 check_for_updates () {
 
     echo "Checking for pending system updates..."
-    updateCheck=$(softwareupdate --list)
+    UPDATE_CHECK=$(softwareupdate --list)
 
     # Determine whether any critical updates are available, and if any require
     # a restart. If no updates need to be installed, bail out.
-    if [[ "$updateCheck" == *"[restart]"* ]]; then
-        installWhich="all"
+    if [[ "$UPDATE_CHECK" == *"[restart]"* ]]; then
+        INSTALL_WHICH="all"
         # Remove "<<" and ">>" but leave the text between
         # (retains restart warnings).
         MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/[\<\<|\>\>]//g')"
         MSG_ACT="$(echo "$MSG_ACT" | sed 's/[\<\<|\>\>]//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | sed 's/[\<\<|\>\>]//g')"
-    elif [[ "$updateCheck" == *"[recommended]"* ]]; then
-        installWhich="recommended"
+    elif [[ "$UPDATE_CHECK" == *"[recommended]"* ]]; then
+        INSTALL_WHICH="recommended"
         # Remove "<<" and ">>" including all the text between
         # (removes restart warnings).
         MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/\<\<.*\>\>//g')"
@@ -132,8 +138,8 @@ check_for_updates () {
 
     # Download updates (all updates if a restart is required for any, otherwise
     # just recommended updates).
-    echo "Caching $installWhich system updates..."
-    softwareupdate --download --$installWhich --no-scan
+    echo "Caching $INSTALL_WHICH system updates..."
+    softwareupdate --download --$INSTALL_WHICH --no-scan
 
 }
 
@@ -144,7 +150,7 @@ display_act_msg () {
     # Create a jamfHelper script that will be called by a LaunchDaemon.
     cat << EOF > "/private/tmp/$HELPER_SCRIPT"
 #!/bin/bash
-"$jamfHelper" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_HEADING" -description "$MSG_ACT"
+"$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_HEADING" -description "$MSG_ACT"
 EOF
     chmod +x "/private/tmp/$HELPER_SCRIPT"
 
@@ -184,17 +190,17 @@ EOF
 # Displays HUD with updating message and runs all cached updates.
 run_updates () {
 
-    echo "Running $installWhich system updates..."
-    "$jamfHelper" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
-    updateOutputCapture="$(softwareupdate --install --$installWhich --no-scan 2>&1)"
+    echo "Running $INSTALL_WHICH system updates..."
+    "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
+    UPDATE_OUTPUT_CAPTURE="$(softwareupdate --install --$INSTALL_WHICH --no-scan 2>&1)"
     echo "Finished running updates."
     killall jamfHelper 2>/dev/null
     clean_up
 
     # Trigger restart if script ran an update which requires it.
-    if [[ "$installWhich" = "all" ]]; then
+    if [[ "$INSTALL_WHICH" = "all" ]]; then
         # Shut down the Mac if BridgeOS received an update requiring it.
-        if [[ "$updateOutputCapture" =~ "select Shut Down from the Apple menu" ]]; then
+        if [[ "$UPDATE_OUTPUT_CAPTURE" =~ "select Shut Down from the Apple menu" ]]; then
             trigger_restart "shut down"
         # Otherwise, restart the Mac.
         else
@@ -259,7 +265,7 @@ trigger_restart () {
 exit_without_updating () {
 
     echo "Running jamf recon..."
-    "$jamf" recon
+    "$JAMF_BINARY" recon
 
     clean_up
 
@@ -286,16 +292,16 @@ HELPER_SCRIPT="$(basename "$0" | sed "s/.sh$//g")_helper.sh"
 BAILOUT=false
 
 # Bail out if the jamfHelper doesn't exist.
-jamfHelper="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
-if [[ ! -x "$jamfHelper" ]]; then
+JAMFHELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
+if [[ ! -x "$JAMFHELPER" ]]; then
     echo "[ERROR] The jamfHelper binary must be present in order to run this script."
     BAILOUT=true
 fi
 
 # Bail out if the jamf binary doesn't exist.
 PATH="/usr/sbin:/usr/local/bin:$PATH"
-jamf=$(which jamf)
-if [[ -z $jamf ]]; then
+JAMF_BINARY=$(which jamf)
+if [[ -z $JAMF_BINARY ]]; then
     echo "[ERROR] The jamf binary could not be found."
     BAILOUT=true
 fi
@@ -362,6 +368,23 @@ if [[ -z "$LOGO" ]] || [[ ! -f "$LOGO" ]]; then
     LOGO="/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
 fi
 
+# Validate max deferral time and whether to skip deferral. To customize these
+# values, make a configuration profile enforcing the MaxDeferralTime (in
+# seconds) and skipDeferral (boolean) attributes in $PLIST to settings of your
+# choice.
+SKIP_DEFERRAL=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('SkipDeferral', 'com.elliotjordan.install_or_defer'))" 2>/dev/null)
+if [[ "$SKIP_DEFERRAL" = "True" ]]; then
+    MAX_DEFERRAL_TIME=0
+else
+    MAX_DEFERRAL_TIME_CUSTOM=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('MaxDeferralTime', 'com.elliotjordan.install_or_defer'))" 2>/dev/null)
+    if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
+        MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
+    else
+        echo "Max deferral time undefined, or not set to a positive integer. Using default value."
+    fi
+fi
+echo "Maximum deferral time: $(convert_seconds $MAX_DEFERRAL_TIME)"
+
 # Perform first run tasks, including calculating deadline.
 FORCE_DATE=$(defaults read "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null)
 if [[ -z $FORCE_DATE || $FORCE_DATE -gt $(( $(date +%s) + MAX_DEFERRAL_TIME )) ]]; then
@@ -415,7 +438,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
     # Show the install/defer prompt.
     echo "Prompting to install updates now or defer..."
-    PROMPT=$("$jamfHelper" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_OR_DEFER_HEADING" -description "$MSG_ACT_OR_DEFER" -button1 "Run Updates" -button2 "Defer" -defaultButton 2 -timeout 3600 -startlaunchd 2>/dev/null)
+    PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_OR_DEFER_HEADING" -description "$MSG_ACT_OR_DEFER" -button1 "Run Updates" -button2 "Defer" -defaultButton 2 -timeout 3600 -startlaunchd 2>/dev/null)
     JAMFHELPER_PID=$!
 
     # Make a note of the amount of time the prompt was shown onscreen.
