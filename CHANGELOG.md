@@ -8,6 +8,18 @@ All notable changes to this project will be documented in this file. This projec
 Nothing yet.
 
 
+## [2.2] - 2019-06-04
+
+### Added
+
+- added option for custom `$MAX_DEFERRAL_TIME` and `$SKIP_DEFERRAL` settings defined by plist attributes, or if undefined, reverts to script default (allows for managing deferral periods via configuration profile rather than making the change in the script and repackaging)
+
+### Changed
+
+- standardized casing (`UpperCamelCase` for CFPreferences, `ALL_CAPS_WITH_UNDERSCORES` for variables)
+- split README text in definition lists into multiple paragraphs
+
+
 ## [2.1.4] - 2019-05-14
 
 ### Changed
@@ -100,7 +112,8 @@ Nothing yet.
 - Initial release
 
 
-[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.1.4...HEAD
+[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.2...HEAD
+[2.2]: https://github.com/homebysix/install-or-defer/compare/v2.1.4...v2.2
 [2.1.4]: https://github.com/homebysix/install-or-defer/compare/v2.1.3...v2.1.4
 [2.1.3]: https://github.com/homebysix/install-or-defer/compare/v2.1.2...v2.1.3
 [2.1.2]: https://github.com/homebysix/install-or-defer/compare/v2.1.1...v2.1.2
