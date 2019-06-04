@@ -13,8 +13,8 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-05-17
-#         Version:  2.2
+#   Last Modified:  2019-06-04
+#         Version:  2.2.0.1
 #
 ###
 
@@ -52,13 +52,13 @@ BUNDLE_ID="com.elliotjordan.install_or_defer"
 # The message users will receive when updates are available, shown above the
 # "Run Updates" and "Defer" buttons.
 MSG_ACT_OR_DEFER_HEADING="Critical updates are available"
-MSG_ACT_OR_DEFER="Apple has released critical security updates, and the ExampleCorp IT department would like you to install them as soon as possible. Please save your work, quit all applications, and click Run Updates.
+MSG_ACT_OR_DEFER="Apple has released critical security updates, and your IT department would like you to install them as soon as possible. Please save your work, quit all applications, and click Run Updates.
 
 {{If now is not a good time, you may defer this message until later. }}Updates will install automatically after %DEFER_HOURS% hours<<, forcing your Mac to restart in the process>>. Note: This may result in losing unsaved work.
 
 If you'd like to manually install the updates yourself, open %UPDATE_MECHANISM% and apply all system and security updates<<, then restart when prompted>>.
 
-If you have any questions, please call or email the ExampleCorp Help Desk."
+If you have any questions, please call or email the IT help desk."
 
 # The message users will receive after the deferral deadline has been reached.
 MSG_ACT_HEADING="Please run updates now"
