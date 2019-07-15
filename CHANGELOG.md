@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file. This projec
 
 Nothing yet.
 
+## [2.2.0.1] - 2019-07-15
+
+### Changed
+
+- generalized `$MSG_ACT_OR_DEFER` to refer to "IT" rather than "ExampleCorp" to allow usage of the script or the packaged build without environment-specific modifications
+
 
 ## [2.2] - 2019-06-04
 
@@ -112,7 +118,8 @@ Nothing yet.
 - Initial release
 
 
-[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.2...HEAD
+[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.2.0.1...HEAD
+[2.2.0.1]: https://github.com/homebysix/install-or-defer/compare/v2.1.4...v2.2.0.1
 [2.2]: https://github.com/homebysix/install-or-defer/compare/v2.1.4...v2.2
 [2.1.4]: https://github.com/homebysix/install-or-defer/compare/v2.1.3...v2.1.4
 [2.1.3]: https://github.com/homebysix/install-or-defer/compare/v2.1.2...v2.1.3
