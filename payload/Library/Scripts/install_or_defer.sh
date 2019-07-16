@@ -337,16 +337,16 @@ if [[ $? -ne 0 ]]; then
     echo "[ERROR] No connection to the Internet."
     BAILOUT=true
 else
-	# Check if a custom CatalogURL is set and if it is available
-	SUCatalog=$(python -c 'from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue("CatalogURL", "com.apple.SoftwareUpdate")')
-	if [[ "$SUCatalog" != "None" ]]; then
-		KernelVersion=$(uname -r)
-		curl --user-agent "Darwin/$KernelVersion" -s --head "$SUCatalog" | grep "200 OK" > /dev/null
-		if [[ $? -ne 0 ]]; then
-			echo "[ERROR] SUCatalog can not be reached."
-			BAILOUT=true
-		fi
-	fi
+    # Check if a custom CatalogURL is set and if it is available
+    SU_CATALOG=$(python -c 'from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue("CatalogURL", "com.apple.SoftwareUpdate")')
+    if [[ "$SU_CATALOG" != "None" ]]; then
+        KERNEL_VERSION=$(uname -r)
+        curl --user-agent "Darwin/$KERNEL_VERSION" -s --head "$SU_CATALOG" | grep "200 OK" > /dev/null
+        if [[ $? -ne 0 ]]; then
+            echo "[ERROR] Software update catalog can not be reached."
+            BAILOUT=true
+        fi
+    fi
 fi
 
 # If FileVault encryption or decryption is in progress, installing updates that
