@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file. This projec
 
 Nothing yet.
 
+## [2.3.0] - 2019-07-16
+
+### Added
+
+- if a custom software update URL is set, the script now checks that URL for reachability before proceeding
+
+
 ## [2.2.0.1] - 2019-07-15
 
 ### Changed
