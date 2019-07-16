@@ -340,8 +340,7 @@ else
     # Check if a custom CatalogURL is set and if it is available
     SU_CATALOG=$(python -c 'from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue("CatalogURL", "com.apple.SoftwareUpdate")')
     if [[ "$SU_CATALOG" != "None" ]]; then
-        KERNEL_VERSION=$(uname -r)
-        if curl --user-agent "Darwin/$KERNEL_VERSION" -s --head "$SU_CATALOG" | grep "200 OK" > /dev/null; then
+        if curl --user-agent "Darwin/$(uname -r)" -s --head "$SU_CATALOG" | grep "200 OK" > /dev/null; then
             echo "[ERROR] Software update catalog can not be reached."
             BAILOUT=true
         fi
