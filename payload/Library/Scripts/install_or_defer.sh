@@ -341,8 +341,7 @@ else
     SU_CATALOG=$(python -c 'from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue("CatalogURL", "com.apple.SoftwareUpdate")')
     if [[ "$SU_CATALOG" != "None" ]]; then
         KERNEL_VERSION=$(uname -r)
-        curl --user-agent "Darwin/$KERNEL_VERSION" -s --head "$SU_CATALOG" | grep "200 OK" > /dev/null
-        if [[ $? -ne 0 ]]; then
+        if curl --user-agent "Darwin/$KERNEL_VERSION" -s --head "$SU_CATALOG" | grep "200 OK" > /dev/null; then
             echo "[ERROR] Software update catalog can not be reached."
             BAILOUT=true
         fi
