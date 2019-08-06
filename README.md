@@ -206,7 +206,7 @@ Create the following two policies:
     - Triggers:
         - __Recurring check-in__
         - Custom: __critical-updates__
-    - Execution Frequency: __Once every day__
+    - Execution Frequency: __Once every week__<sup>[1](#footnote1)</sup>
     - Packages:
         - __install_or_defer-x.x.x.pkg__
     - Scope:
@@ -322,3 +322,5 @@ Once the script is debugged and updated, you can generate a new installer, uploa
 - If you encounter any issues or have questions, please open an issue on this GitHub repo.
 
 Enjoy!
+
+<a name="footnote1"><sup>1</sup></a> This policy run frequency assumes you're using the default deferral period of 72 hours. If you've set a custom deferral period, it is recommended that your policy runs less frequently than the maximum deferral time, so that your Macs have the chance to defer, timeout, and apply the updates before the policy attempts to run again.
