@@ -13,8 +13,8 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-07-16
-#         Version:  2.3.0
+#   Last Modified:  2019-07-23
+#         Version:  2.3.1
 #
 ###
 
@@ -285,6 +285,9 @@ exit_without_updating () {
 exec 1> >(logger -s -t "$(basename "$0")") 2>&1
 echo "Starting $(basename "$0") script. Performing validation and error checking..."
 
+# Define custom $PATH.
+PATH="/usr/sbin:/usr/bin:/usr/local/bin:$PATH"
+
 # Filename we will use for the auto-generated helper script.
 HELPER_SCRIPT="$(basename "$0" | sed "s/.sh$//g")_helper.sh"
 
@@ -299,7 +302,6 @@ if [[ ! -x "$JAMFHELPER" ]]; then
 fi
 
 # Bail out if the jamf binary doesn't exist.
-PATH="/usr/sbin:/usr/local/bin:$PATH"
 JAMF_BINARY=$(which jamf)
 if [[ -z $JAMF_BINARY ]]; then
     echo "[ERROR] The jamf binary could not be found."
