@@ -13,8 +13,8 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-07-23
-#         Version:  2.3.1
+#   Last Modified:  2019-09-23
+#         Version:  2.3.2
 #
 ###
 
@@ -156,7 +156,8 @@ EOF
 
     # Create the LaunchDaemon that we'll use to show the persistent jamfHelper
     # messages.
-    cat << EOF > "/private/tmp/${BUNDLE_ID}_helper.plist"
+    HELPER_LD="/private/tmp/${BUNDLE_ID}_helper.plist"
+    cat << EOF > "$HELPER_LD"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -176,7 +177,7 @@ EOF
     # Load the LaunchDaemon to show the jamfHelper message.
     echo "Displaying \"run updates\" message..."
     killall jamfHelper 2>/dev/null
-    launchctl load -w "/private/tmp/${BUNDLE_ID}_helper.plist"
+    launchctl load -w "$HELPER_LD"
 
     # After specified delay, apply updates.
     echo "Waiting $(( UPDATE_DELAY / 60 )) minutes before automatically applying updates..."
@@ -217,8 +218,9 @@ clean_up () {
     defaults delete "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null
     defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null
 
-    echo "Cleaning up main script and LaunchDaemon..."
+    echo "Cleaning up main script and LaunchDaemons..."
     mv "/Library/LaunchDaemons/$BUNDLE_ID.plist" "/private/tmp/$BUNDLE_ID.plist"
+    launchctl unload -w "$HELPER_LD"
     mv "$0" "/private/tmp/"
 
 }
