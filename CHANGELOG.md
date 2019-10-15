@@ -7,6 +7,15 @@ All notable changes to this project will be documented in this file. This projec
 
 Nothing yet.
 
+## [2.3.3] - 2019-10-15
+
+### Added
+
+- added macOS Catalina support
+    - accounted for new `softwareupdate` syntax #32
+    - added explicit 10.15 support in version compatibility check #25
+- removed legacy `launchctl` syntax
+
 ## [2.3.2] - 2019-09-23
 
 ### Added
@@ -137,7 +146,8 @@ Nothing yet.
 - Initial release
 
 
-[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.3.2...HEAD
+[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.3.3...HEAD
+[2.3.3]: https://github.com/homebysix/install-or-defer/compare/v2.3.2...v2.2.3.3
 [2.3.2]: https://github.com/homebysix/install-or-defer/compare/v2.3.1...v2.2.3.2
 [2.3.1]: https://github.com/homebysix/install-or-defer/compare/v2.3.0...v2.2.3.1
 [2.3.0]: https://github.com/homebysix/install-or-defer/compare/v2.2.0.1...v2.2.3.0
