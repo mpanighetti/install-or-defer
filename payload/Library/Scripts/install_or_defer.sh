@@ -13,8 +13,8 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-09-23
-#         Version:  2.3.2
+#   Last Modified:  2019-10-15
+#         Version:  2.3.3
 #
 ###
 
@@ -116,14 +116,14 @@ check_for_updates () {
 
     # Determine whether any critical updates are available, and if any require
     # a restart. If no updates need to be installed, bail out.
-    if [[ "$UPDATE_CHECK" == *"[restart]"* ]]; then
+    if [[ "$UPDATE_CHECK" =~ (Action: restart|\[restart\]) ]]; then
         INSTALL_WHICH="all"
         # Remove "<<" and ">>" but leave the text between
         # (retains restart warnings).
         MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/[\<\<|\>\>]//g')"
         MSG_ACT="$(echo "$MSG_ACT" | sed 's/[\<\<|\>\>]//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | sed 's/[\<\<|\>\>]//g')"
-    elif [[ "$UPDATE_CHECK" == *"[recommended]"* ]]; then
+    elif [[ "$UPDATE_CHECK" =~ (Recommended: YES|\[recommended\]) ]]; then
         INSTALL_WHICH="recommended"
         # Remove "<<" and ">>" including all the text between
         # (removes restart warnings).
@@ -233,12 +233,7 @@ trigger_restart () {
     echo "Attempting a \"soft\" $1..."
     CURRENT_USER=$(/usr/bin/stat -f%Su /dev/console)
     USER_ID=$(id -u "$CURRENT_USER")
-    if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -le 9 ]]; then
-        LOGINWINDOW_PID=$(pgrep -x -u "$USER_ID" loginwindow)
-        launchctl bsexec "$LOGINWINDOW_PID" osascript -e "tell application \"System Events\" to $1"
-    elif [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -gt 9 ]]; then
-        launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
-    fi
+    launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
 
     # After specified delay, kill all apps forcibly, which clears the way for
     # an unobstructed restart.
@@ -254,11 +249,7 @@ trigger_restart () {
             kill -9 "$PID"
         fi
     done
-    if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -le 9 ]]; then
-        launchctl bsexec "$LOGINWINDOW_PID" osascript -e "tell application \"System Events\" to $1"
-    elif [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -gt 9 ]]; then
-        launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
-    fi
+    launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
     # Mac should restart now, ending this script and installing updates.
 
 }
@@ -314,14 +305,14 @@ fi
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | awk -F . '{print $2}')
 
-# If the macOS version is not 10.12 through 10.14, this script may not work.
+# If the macOS version is not 10.12 through 10.15, this script may not work.
 # When new versions of macOS are released, this logic should be updated after
 # the script has been tested successfully.
 if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 12 ]] || [[ "$OS_MAJOR" -lt 10 ]]; then
     echo "[ERROR] This script requires at least macOS 10.12. This Mac has $OS_MAJOR.$OS_MINOR."
     BAILOUT=true
-elif [[ "$OS_MAJOR" -gt 10 ]] || [[ "$OS_MINOR" -gt 14 ]]; then
-    echo "[ERROR] This script has been tested through macOS 10.14 only. This Mac has $OS_MAJOR.$OS_MINOR."
+elif [[ "$OS_MAJOR" -gt 10 ]] || [[ "$OS_MINOR" -gt 15 ]]; then
+    echo "[ERROR] This script has been tested through macOS 10.15 only. This Mac has $OS_MAJOR.$OS_MINOR."
     BAILOUT=true
 else
     if [[ "$OS_MINOR" -lt 14 ]]; then
