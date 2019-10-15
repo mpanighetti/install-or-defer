@@ -58,7 +58,7 @@ The framework has two major limitations:
 
 ## Script configuration
 
-Open the script file with a text editor (e.g. TextWrangler or Atom): __payload/Library/Scripts/install_or_defer.sh__
+Open the script file with a text editor (e.g. Atom): __payload/Library/Scripts/install_or_defer.sh__
 
 There are several variables in the script that should be customized to your organization's needs:
 
@@ -166,7 +166,7 @@ Create a smart group for each software update or operating system patch you wish
 
 - __Critical Update Needed: Security Update 2019-005 High Sierra__
     - `Operating System Build` `matches regex` `^17G[1-7]`
-    - `or` `Operating System Build` `matches regex` `^17G80[0-2]$`
+    - `or` `Operating System Build` `matches regex` `^17G80[0-2]`
     - `or` `Operating System Build` `matches regex` `^17G803[0-6]$`
 
 For completion's sake, here's an update that won't require a restart but is still tagged as `Recommended: YES` in the `softwareupdate` catalog:
