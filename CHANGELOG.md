@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 
 Nothing yet.
 
+
 ## [2.3.3] - 2019-10-15
 
 ### Added
@@ -16,17 +17,20 @@ Nothing yet.
     - added explicit 10.15 support in version compatibility check #25
 - removed legacy `launchctl` syntax
 
+
 ## [2.3.2] - 2019-09-23
 
 ### Added
 
 - Added explicit unload of helper LaunchDaemon (fixes an issue where the process persists if the enforced updates do not require a restart, e.g. Safari).
 
+
 ## [2.3.1] - 2019-07-23
 
 ### Added
 
 - Added `/usr/bin` to `$PATH` definitions (fixes an issue where third-party Python2 installs fail attempts to read system settings due to missing `Foundation` and `CoreFoundation` modules).
+
 
 ## [2.3.0] - 2019-07-16
 
@@ -147,11 +151,11 @@ Nothing yet.
 
 
 [Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.3.3...HEAD
-[2.3.3]: https://github.com/homebysix/install-or-defer/compare/v2.3.2...v2.2.3.3
-[2.3.2]: https://github.com/homebysix/install-or-defer/compare/v2.3.1...v2.2.3.2
-[2.3.1]: https://github.com/homebysix/install-or-defer/compare/v2.3.0...v2.2.3.1
-[2.3.0]: https://github.com/homebysix/install-or-defer/compare/v2.2.0.1...v2.2.3.0
-[2.2.0.1]: https://github.com/homebysix/install-or-defer/compare/v2.1.4...v2.2.0.1
+[2.3.3]: https://github.com/homebysix/install-or-defer/compare/v2.3.2...v2.3.3
+[2.3.2]: https://github.com/homebysix/install-or-defer/compare/v2.3.1...v2.3.2
+[2.3.1]: https://github.com/homebysix/install-or-defer/compare/v2.3.0...v2.3.1
+[2.3.0]: https://github.com/homebysix/install-or-defer/compare/v2.2.0.1...v2.3.0
+[2.2.0.1]: https://github.com/homebysix/install-or-defer/compare/v2.2...v2.2.0.1
 [2.2]: https://github.com/homebysix/install-or-defer/compare/v2.1.4...v2.2
 [2.1.4]: https://github.com/homebysix/install-or-defer/compare/v2.1.3...v2.1.4
 [2.1.3]: https://github.com/homebysix/install-or-defer/compare/v2.1.2...v2.1.3
