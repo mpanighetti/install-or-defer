@@ -4,7 +4,7 @@ This framework will prompt users of Jamf Pro-managed Macs to install Apple softw
 
 ![Install or defer prompt](img/install-or-defer-fullscreen.png)
 
-This workflow is most useful for updates that require a restart and include important security-related patches (e.g. Security Update 2018-003 High Sierra, macOS Mojave 10.14.2), but also applies to critical security updates that don't require a restart (e.g. Safari 12.0.2). Basically, anything with the `[recommended]` and/or `[restart]` label in the `softwareupdate` catalog is in scope.
+This workflow is most useful for updates that require a restart and include important security-related patches (e.g. macOS Catalina 10.15 Supplemental Update), but also applies to critical security updates that don't require a restart (e.g. Safari 13.0.2). Basically, anything with the `Recommended: YES` and/or `Action: restart` label in the `softwareupdate` catalog is in scope.
 
 This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer package when changes are made to the script or to the LaunchDaemon that runs it (despite the name, packages generated with munkipkg don't require Munki; they work great with Jamf Pro). See the [Installer Creation](#installer-creation) section below for specific steps on creating the installer for this framework.
 
@@ -13,7 +13,7 @@ This framework is distributed in the form of a [munkipkg](https://github.com/mun
 
 Here's what needs to be in place in order to use this framework:
 
-- The current version of this framework has been tested only on __macOS 10.12 through 10.14__, but will most likely work on 10.8+ (note that any changes to install-or-defer will likely not be tested thoroughly in versions of macOS which no longer receive security updates from Apple, but older versions should continue to function normally in those environments).
+- The current version of this framework has been tested only on __macOS 10.12 through 10.15__, but older versions should continue to function normally for previous macOS builds (note, however, that those versions of macOS are no longer receiving regular security updates from Apple).
 - Target Macs must be __enrolled in Jamf Pro__ and have the `jamfHelper` binary installed.
 - We're assuming that __an automatic restart is desired when updates require it__.
 - Optional: A __company logo__ graphic file in a "stash" on each Mac (if no logo is provided, the Software Update icon will be used).
@@ -28,7 +28,7 @@ Here's how everything works, once it's configured:
 2. People who fall into the smart group start running the policy at next check-in.
 3. The policy installs a package that places a LaunchDaemon and a script.
 4. The LaunchDaemon executes the script, which performs the following actions:
-    1. The script runs `softwareupdate --list` to determine if any updates are required (determined by whether a `[restart]` or `[recommended]` label is found in the update check). If no such updates are found, the script and LaunchDaemon self-destruct.
+    1. The script runs `softwareupdate --list` to determine if any updates are required (determined by whether the update is labeled as either recommended or requiring a restart). If no such updates are found, the script and LaunchDaemon self-destruct.
     2. If a required update is found, the script runs `softwareupdate --download --all` or `softwareupdate --download --recommended` to cache all available recommended Apple updates in the background (`--all` if a restart is required for any updates, `--recommended` if not).
     3. An onscreen message appears, indicating the new updates are required to be installed. Two options are given: __Run Updates__ or __Defer__.
 
@@ -58,7 +58,7 @@ The framework has two major limitations:
 
 ## Script configuration
 
-Open the script file with a text editor (e.g. TextWrangler or Atom): __payload/Library/Scripts/install_or_defer.sh__
+Open the script file with a text editor (e.g. Atom): __payload/Library/Scripts/install_or_defer.sh__
 
 There are several variables in the script that should be customized to your organization's needs:
 
@@ -159,36 +159,23 @@ Upload this package (created with munkipkg above) to the JSS via Jamf Admin or v
 
 ### Smart Groups
 
-Create a smart group for each software update or operating system patch you wish to enforce. Here are some examples to serve as guides.
+Create a smart group for each software update or operating system patch you wish to enforce. Here are some examples to serve as guides, using regular expressions to allow for fewer version checks:
 
-- __Critical Update Needed: macOS Mojave 10.14.2__
-    - `Last Check-In` `less than x days ago` `7`
-    - `and` `Operating System Build` `matches regex` `^18[A-B]`
+- __Critical Update Needed: macOS Catalina 10.15 Supplemental Update__
+    - `Operating System Build` `matches regex` `^19A[1-5]`
 
-- __Critical Update Needed: Security Update 2018-003 High Sierra__
-    - `Last Check-In` `less than x days ago` `7`
-    - `and` `(` `Operating System Build` `matches regex` `^17G6[5-6]`
-    - `or` `Operating System Build` `matches regex` `^17G[1-3]` `)`
+- __Critical Update Needed: Security Update 2019-005 High Sierra__
+    - `Operating System Build` `matches regex` `^17G[1-7]`
+    - `or` `Operating System Build` `matches regex` `^17G80[0-2]`
+    - `or` `Operating System Build` `matches regex` `^17G803[0-6]$`
 
-The "Last Check-In" criteria has been added in the examples above in order to make the smart group membership count more accurately reflect the number of _active_ computers that need patching, rather than including computers that have been lost, decommissioned, or shelved. The presence or absence of the "Last Check-In" criteria does not have a significant effect on behavior or scope of this framework.
+For completion's sake, here's an update that won't require a restart but is still tagged as `Recommended: YES` in the `softwareupdate` catalog:
 
-Searching with regular expressions (regex) was added to Jamf Pro as of version 10.7.0. If you're running an older version, you can use `is` to approximate the above behavior and call out each specific version you're targeting for update, as per this example:
-
-- __Critical Update Needed: macOS High Sierra 10.13.6__
-    - `Last Check-In` `less than x days ago` `7`
-    - `and` `(` `Operating System` `is` `10.13`
-    - `or` `Operating System` `is` `10.13.1`
-    - `or` `Operating System` `is` `10.13.2`
-    - `or` `Operating System` `is` `10.13.3`
-    - `or` `Operating System` `is` `10.13.4`
-    - `or` `Operating System` `is` `10.13.5` `)`
-
-For completion's sake, here's an update that won't require a restart but is still tagged as `[recommended]` in the `softwareupdate` catalog:
-
-- __Critical Update Needed: Safari 12.0.2__
+- __Critical Update Needed: Safari 13.0.2__
     - `Application Title` `is` `Safari.app`
-    - `and` `(` `Application Version` `matches regex` `^11`
-    - `or` `Application Version` `matches regex` `^12.0.[0-1]` `)`
+    - `and` `(` `Application Version` `matches regex` `^\d\.`
+    - `or` `Application Version` `matches regex` `^1[0-2]\.`
+    - `or` `Application Version` `matches regex` `^13\.0\.[0-1]` `)`
 
 ### Policies
 
@@ -245,16 +232,18 @@ Create the following two policies:
     ```
     Starting install_or_defer.sh script. Performing validation and error checking...
     Validation and error checking passed. Starting main process...
-    Deferral deadline: 2019-02-12 14:54:45
+    Deferral deadline: 2019-10-18 12:32:10
     Time remaining: 72h:00m:00s
     Checking for pending system updates...
     Caching all system updates...
     Software Update Tool
-    Copyright 2002-2015 Apple Inc.
 
     Finding available software
+    Software Update found the following new or updated software:
+    * Label: macOS 10.15 Update-
+        Title: macOS 10.15 Update, Version:  , Size: 962326K, Recommended: YES, Action: restart,
 
-    Downloaded Security Update 2019-001
+    Downloaded macOS 10.15 Update-
     Done.
     Prompting to install updates now or defer...
     ```
@@ -265,7 +254,7 @@ Create the following two policies:
 8. Click __Defer__. You should see the following output appear in Console:
     ```
     User clicked Defer after 00h:00m:20s.
-    Next prompt will appear after 2016-09-08 20:31:45.
+    Next prompt will appear after 2019-10-15 16:34:30.
     ```
 
 9. Run the following command in Terminal:
