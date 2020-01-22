@@ -13,7 +13,7 @@
 #                   the system restarts automatically.
 #         Author:   Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2020-01-21
+#   Last Modified:  2020-01-22
 #         Version:  3.0
 #
 ###
@@ -398,7 +398,7 @@ fi
 
 # Validate max deferral time and whether to skip deferral. To customize these
 # values, make a configuration profile enforcing the MaxDeferralTime (in
-# seconds) and skipDeferral (boolean) attributes in $PLIST to settings of your
+# seconds) and skipDeferral (boolean) attributes in $BUNDLE_ID to settings of your
 # choice.
 SKIP_DEFERRAL=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('SkipDeferral', 'com.github.mpanighetti.install_or_defer'))" 2>/dev/null)
 if [[ "$SKIP_DEFERRAL" = "True" ]]; then
