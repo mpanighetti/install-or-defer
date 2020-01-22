@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.elliotjordan.install_or_defer</string>
+	<string>com.github.mpanighetti.install_or_defer</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/bin/bash</string>

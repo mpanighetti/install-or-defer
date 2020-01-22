@@ -5,7 +5,7 @@
 	<key>distribution_style</key>
 	<false/>
 	<key>identifier</key>
-	<string>com.elliotjordan.install_or_defer</string>
+	<string>com.github.mpanighetti.install_or_defer</string>
 	<key>install_location</key>
 	<string>/</string>
 	<key>name</key>
@@ -17,6 +17,6 @@
 	<key>suppress_bundle_relocation</key>
 	<true/>
 	<key>version</key>
-	<string>2.3.4</string>
+	<string>3.0</string>
 </dict>
 </plist>

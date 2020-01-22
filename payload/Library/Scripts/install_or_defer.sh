@@ -3,18 +3,18 @@
 
 ###
 #
-#            Name:  install_or_defer.sh
+#            Name:  Install or Defer.sh
 #     Description:  This script, meant to be triggered periodically by a
 #                   LaunchDaemon, will prompt users to install Apple system
 #                   updates that the IT department has deemed "critical." Users
 #                   will have the option to Run Updates or Defer. After a
 #                   specified amount of time, the update will be forced. If
 #                   updates requiring a restart were found in the update check,
-#                   restarts automatically.
-#         Authors:  Elliot Jordan and Mario Panighetti
+#                   the system restarts automatically.
+#         Author:   Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
 #   Last Modified:  2020-01-21
-#         Version:  2.3.4
+#         Version:  3.0
 #
 ###
 
@@ -23,7 +23,7 @@
 
 # Path to a plist file that is used to store settings locally. Omit ".plist"
 # extension.
-PLIST="/Library/Preferences/com.elliotjordan.install_or_defer"
+PLIST="/Library/Preferences/com.github.mpanighetti.install_or_defer"
 
 # (Optional) Path to a logo that will be used in messaging. Recommend 512px,
 # PNG format. If no logo is provided, the Software Update icon will be used.
@@ -32,7 +32,7 @@ LOGO=""
 # The identifier of the LaunchDaemon that is used to call this script, which
 # should match the file in the payload/Library/LaunchDaemons folder. Omit
 # ".plist" extension.
-BUNDLE_ID="com.elliotjordan.install_or_defer"
+BUNDLE_ID="com.github.mpanighetti.install_or_defer"
 
 # The file path of this script.
 SCRIPT_PATH="/Library/Scripts/install_or_defer.sh"
@@ -329,11 +329,11 @@ fi
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | awk -F . '{print $2}')
 
-# If the macOS version is not 10.12 through 10.15, this script may not work.
+# If the macOS version is not 10.13 through 10.15, this script may not work.
 # When new versions of macOS are released, this logic should be updated after
 # the script has been tested successfully.
-if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 12 ]] || [[ "$OS_MAJOR" -lt 10 ]]; then
-    echo "[ERROR] This script requires at least macOS 10.12. This Mac has $OS_MAJOR.$OS_MINOR."
+if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 13 ]] || [[ "$OS_MAJOR" -lt 10 ]]; then
+    echo "[ERROR] This script requires at least macOS 10.13. This Mac has $OS_MAJOR.$OS_MINOR."
     BAILOUT=true
 elif [[ "$OS_MAJOR" -gt 10 ]] || [[ "$OS_MINOR" -gt 15 ]]; then
     echo "[ERROR] This script has been tested through macOS 10.15 only. This Mac has $OS_MAJOR.$OS_MINOR."
@@ -400,11 +400,11 @@ fi
 # values, make a configuration profile enforcing the MaxDeferralTime (in
 # seconds) and skipDeferral (boolean) attributes in $PLIST to settings of your
 # choice.
-SKIP_DEFERRAL=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('SkipDeferral', 'com.elliotjordan.install_or_defer'))" 2>/dev/null)
+SKIP_DEFERRAL=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('SkipDeferral', 'com.github.mpanighetti.install_or_defer'))" 2>/dev/null)
 if [[ "$SKIP_DEFERRAL" = "True" ]]; then
     MAX_DEFERRAL_TIME=0
 else
-    MAX_DEFERRAL_TIME_CUSTOM=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('MaxDeferralTime', 'com.elliotjordan.install_or_defer'))" 2>/dev/null)
+    MAX_DEFERRAL_TIME_CUSTOM=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('MaxDeferralTime', 'com.github.mpanighetti.install_or_defer'))" 2>/dev/null)
     if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
         MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
     else

@@ -1,30 +1,35 @@
 #!/bin/bash
 
-PLIST="$3/Library/Preferences/com.elliotjordan.install_or_defer"
-HELPER_LD="$3/private/tmp/com.elliotjordan.install_or_defer_helper.plist"
-MAIN_LD="$3/Library/LaunchDaemons/com.elliotjordan.install_or_defer.plist"
+RESOURCE_FILES=(
+    "$3/Library/LaunchDaemons/com.elliotjordan.install_or_defer.plist"
+    "$3/Library/LaunchDaemons/com.github.mpanighetti.install_or_defer.plist"
+    "$3/Library/Preferences/com.elliotjordan.install_or_defer"
+    "$3/Library/Preferences/com.github.mpanighetti.install_or_defer"
+    "$3/Library/Scripts/install_or_defer.sh"
+    "$3/Library/Scripts/install_or_defer_helper.sh"
+    "$3/private/tmp/install-or-defer"
+)
 
 # Copy all output to the system log for diagnostic purposes.
 exec 1> >(logger -s -t "$(basename "$0")") 2>&1
 
 # Kill jamfHelper process to close all current notifications.
 echo "Killing any active jamfHelper notifications..."
-killall jamfHelper 2>"/dev/null"
+killall jamfHelper 2>/dev/null
 
-# Clean up plist values.
-echo "Cleaning up stored plist values..."
-defaults delete "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null
-defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null
-
-# Unload LaunchDaemons.
-if [[ -f "$HELPER_LD" ]]; then
-    echo "Unloading and removing $HELPER_LD..."
-    launchctl unload -w "$HELPER_LD"
-    rm -f "$HELPER_LD"
-fi
-
-if [[ -f "$MAIN_LD" ]]; then
-    echo "Unloading and removing $MAIN_LD..."
-    launchctl unload -w "$MAIN_LD"
-    rm -f "$MAIN_LD"
-fi
+# Remove all script resources (if already present on the system).
+echo "Removing existing script resources..."
+for TARGET_FILE in "${RESOURCE_FILES[@]}"; do
+    if [[ -e "$TARGET_FILE" ]]; then
+        # If plist is loaded as a LaunchDaemon, unload it.
+        if [[ "$TARGET_FILE" == *".plist" ]]; then
+            PLIST_LABEL=$(basename "$TARGET_FILE" | awk -F.plist '{print $1}')
+            if [[ $(launchctl list) = *"$PLIST_LABEL"* ]]; then
+                launchctl remove "$PLIST_LABEL"
+                echo "Unloaded LaunchDaemon: $PLIST_LABEL"
+            fi
+        fi
+        rm -rf "$TARGET_FILE"
+        echo "Removed file: $TARGET_FILE"
+    fi
+done
