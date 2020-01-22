@@ -8,6 +8,15 @@ All notable changes to this project will be documented in this file. This projec
 Nothing yet.
 
 
+## [2.3.4] - 2020-01-21
+
+### Changed
+
+- `clean_up` function no longer unloads primary LaunchDaemon ahead of triggering system restart or shutdown #33
+    - moved primary LaunchDaemon unload to `exit_without_updating`
+- `clean_up` function moves all script resources to `/private/tmp/install-or-defer`
+
+
 ## [2.3.3] - 2019-10-15
 
 ### Added
@@ -150,7 +159,8 @@ Nothing yet.
 - Initial release
 
 
-[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.3.3...HEAD
+[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.3.4...HEAD
+[2.3.4]: https://github.com/homebysix/install-or-defer/compare/v2.3.3...v2.3.4
 [2.3.3]: https://github.com/homebysix/install-or-defer/compare/v2.3.2...v2.3.3
 [2.3.2]: https://github.com/homebysix/install-or-defer/compare/v2.3.1...v2.3.2
 [2.3.1]: https://github.com/homebysix/install-or-defer/compare/v2.3.0...v2.3.1
