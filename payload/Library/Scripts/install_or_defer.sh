@@ -11,7 +11,7 @@
 #                   specified amount of time, the update will be forced. If
 #                   updates requiring a restart were found in the update check,
 #                   the system restarts automatically.
-#         Author:   Mario Panighetti and Elliot Jordan
+#         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
 #   Last Modified:  2020-01-22
 #         Version:  3.0
