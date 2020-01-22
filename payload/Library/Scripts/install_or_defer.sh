@@ -13,8 +13,8 @@
 #                   restarts automatically.
 #         Authors:  Elliot Jordan and Mario Panighetti
 #         Created:  2017-03-09
-#   Last Modified:  2019-10-15
-#         Version:  2.3.3
+#   Last Modified:  2020-01-21
+#         Version:  2.3.4
 #
 ###
 
@@ -33,6 +33,9 @@ LOGO=""
 # should match the file in the payload/Library/LaunchDaemons folder. Omit
 # ".plist" extension.
 BUNDLE_ID="com.elliotjordan.install_or_defer"
+
+# The file path of this script.
+SCRIPT_PATH="/Library/Scripts/install_or_defer.sh"
 
 
 ################################## MESSAGING ##################################
@@ -88,7 +91,7 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 
 ################################## FUNCTIONS ##################################
 
-# This function takes a number of seconds as input and returns hh:mm:ss format.
+# Takes a number of seconds as input and returns hh:mm:ss format.
 # Source: http://stackoverflow.com/a/12199798
 # License: CC BY-SA 3.0 (https://creativecommons.org/licenses/by-sa/3.0/)
 # Created by: perreal (http://stackoverflow.com/users/390913/perreal)
@@ -107,8 +110,8 @@ convert_seconds () {
 
 }
 
-# This function caches all available critical system updates, or exits if no
-# critical updates are available.
+# Caches all available critical system updates, or exits if no critical updates
+# are available.
 check_for_updates () {
 
     echo "Checking for pending system updates..."
@@ -143,20 +146,19 @@ check_for_updates () {
 
 }
 
-# Invoked after the deferral deadline passes, this function displays an
-# onscreen message instructing the user to apply updates.
+# Displays an onscreen message instructing the user to apply updates.
+# This function is invoked after the deferral deadline passes.
 display_act_msg () {
 
     # Create a jamfHelper script that will be called by a LaunchDaemon.
-    cat << EOF > "/private/tmp/$HELPER_SCRIPT"
+    cat << EOF > "$HELPER_SCRIPT"
 #!/bin/bash
 "$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_HEADING" -description "$MSG_ACT"
 EOF
-    chmod +x "/private/tmp/$HELPER_SCRIPT"
+    chmod +x "$HELPER_SCRIPT"
 
     # Create the LaunchDaemon that we'll use to show the persistent jamfHelper
     # messages.
-    HELPER_LD="/private/tmp/${BUNDLE_ID}_helper.plist"
     cat << EOF > "$HELPER_LD"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -167,7 +169,7 @@ EOF
 	<key>Label</key>
 	<string>${BUNDLE_ID}_helper</string>
 	<key>Program</key>
-	<string>/private/tmp/$HELPER_SCRIPT</string>
+	<string>$HELPER_SCRIPT</string>
 	<key>ThrottleInterval</key>
 	<integer>10</integer>
 </dict>
@@ -195,7 +197,6 @@ run_updates () {
     "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
     UPDATE_OUTPUT_CAPTURE="$(softwareupdate --install --$INSTALL_WHICH --no-scan 2>&1)"
     echo "Finished running updates."
-    killall jamfHelper 2>/dev/null
     clean_up
 
     # Trigger restart if script ran an update which requires it.
@@ -211,23 +212,44 @@ run_updates () {
 
 }
 
-# Clean up plist values and self destruct LaunchDaemon and script.
+# Initializes plist values and moves all script and LaunchDaemon resources to
+# /private/tmp for deletion on a subsequent restart.
 clean_up () {
+
+    echo "Killing any active jamfHelper notifications..."
+    killall jamfHelper 2>/dev/null
 
     echo "Cleaning up stored plist values..."
     defaults delete "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null
     defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null
 
-    echo "Cleaning up main script and LaunchDaemons..."
-    mv "/Library/LaunchDaemons/$BUNDLE_ID.plist" "/private/tmp/$BUNDLE_ID.plist"
-    launchctl unload -w "$HELPER_LD"
-    mv "$0" "/private/tmp/"
+    echo "Cleaning up script resources..."
+    CLEANUP_FILES=(
+        "/Library/LaunchDaemons/$BUNDLE_ID.plist"
+        "$HELPER_LD"
+        "$HELPER_SCRIPT"
+        "$SCRIPT_PATH"
+    )
+    CLEANUP_DIR="/private/tmp/install-or-defer"
+    mkdir "$CLEANUP_DIR"
+    for TARGET_FILE in "${CLEANUP_FILES[@]}"; do
+        if [[ -e "$TARGET_FILE" ]]; then
+            mv -v "$TARGET_FILE" "$CLEANUP_DIR"
+        fi
+    done
+    if [[ $(launchctl list) =~ "${BUNDLE_ID}_helper" ]]; then
+        echo "Unloading ${BUNDLE_ID}_helper LaunchDaemon..."
+        launchctl remove "${BUNDLE_ID}_helper"
+    fi
 
 }
 
-# This function immediately attempts a "soft" restart, waits a specified amount
-# of time, and then forces a "hard" restart.
+# Restarts or shuts down the system depending on parameter input. Attempts a
+# "soft" restart, waits a specified amount of time, and then forces a "hard"
+# restart.
 trigger_restart () {
+
+    clean_up
 
     # Immediately attempt a "soft" restart.
     echo "Attempting a \"soft\" $1..."
@@ -262,11 +284,12 @@ exit_without_updating () {
 
     clean_up
 
-    if [[ -e "/private/tmp/$BUNDLE_ID.plist" ]]; then
-      "/bin/echo" "Unloading $BUNDLE_ID LaunchDaemon..."
-      "/bin/launchctl" unload -w "/private/tmp/$BUNDLE_ID.plist"
+    # Unload main LaunchDaemon. This will likely kill the script.
+    if [[ $(launchctl list) =~ "$BUNDLE_ID" ]]; then
+        echo "Unloading $BUNDLE_ID LaunchDaemon..."
+        launchctl remove "$BUNDLE_ID"
     fi
-    "/bin/echo" "Script will end here."
+    echo "Script will end here."
     exit 0
 
 }
@@ -281,8 +304,9 @@ echo "Starting $(basename "$0") script. Performing validation and error checking
 # Define custom $PATH.
 PATH="/usr/sbin:/usr/bin:/usr/local/bin:$PATH"
 
-# Filename we will use for the auto-generated helper script.
-HELPER_SCRIPT="$(basename "$0" | sed "s/.sh$//g")_helper.sh"
+# Filename and path we will use for the auto-generated helper script and LaunchDaemon.
+HELPER_SCRIPT="/Library/Scripts/$(basename "$0" | sed "s/.sh$//g")_helper.sh"
+HELPER_LD="/Library/LaunchDaemons/${BUNDLE_ID}_helper.plist"
 
 # Flag variable for catching show-stopping errors.
 BAILOUT=false
