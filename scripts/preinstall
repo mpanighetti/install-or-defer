@@ -24,7 +24,7 @@ for TARGET_FILE in "${RESOURCE_FILES[@]}"; do
         # If plist is loaded as a LaunchDaemon, unload it.
         if [[ "$TARGET_FILE" == *".plist" ]]; then
             PLIST_LABEL=$(basename "$TARGET_FILE" | awk -F.plist '{print $1}')
-            if [[ $(launchctl list) = *"$PLIST_LABEL"* ]]; then
+            if [[ $(launchctl list) == *"$PLIST_LABEL"* ]]; then
                 launchctl remove "$PLIST_LABEL"
                 echo "Unloaded LaunchDaemon: $PLIST_LABEL"
             fi
