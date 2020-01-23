@@ -3,8 +3,8 @@
 RESOURCE_FILES=(
     "$3/Library/LaunchDaemons/com.elliotjordan.install_or_defer.plist"
     "$3/Library/LaunchDaemons/com.github.mpanighetti.install_or_defer.plist"
-    "$3/Library/Preferences/com.elliotjordan.install_or_defer"
-    "$3/Library/Preferences/com.github.mpanighetti.install_or_defer"
+    "$3/Library/Preferences/com.elliotjordan.install_or_defer.plist"
+    "$3/Library/Preferences/com.github.mpanighetti.install_or_defer.plist"
     "$3/Library/Scripts/install_or_defer.sh"
     "$3/Library/Scripts/install_or_defer_helper.sh"
     "$3/private/tmp/install-or-defer"
