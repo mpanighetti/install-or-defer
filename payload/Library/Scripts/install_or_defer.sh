@@ -13,7 +13,7 @@
 #                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2020-01-23
+#   Last Modified:  2020-01-24
 #         Version:  3.0
 #
 ###
@@ -135,7 +135,6 @@ check_for_updates () {
         MSG_UPDATING="$(echo "$MSG_UPDATING" | sed 's/\<\<.*\>\>//g')"
     else
         echo "No critical updates available."
-        clean_up
         exit_without_updating
     fi
 
