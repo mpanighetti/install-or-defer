@@ -3,6 +3,6 @@
 # Copy all output to the system log for diagnostic purposes.
 exec 1> >(logger -s -t "$(basename "$0")") 2>&1
 
-MAIN_LD="$3/Library/LaunchDaemons/com.github.mpanighetti.install_or_defer.plist"
+MAIN_LD="$3/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist"
 
 launchctl load -w "$MAIN_LD"

@@ -57,7 +57,7 @@ The framework has two major limitations:
 
 ## Settings customization
 
-This framework is designed to work "out of the box" without any modification, but if you wish to customize the workflow to your organization's needs (e.g. changing wording in the alerts, adding corporate branding, adjusting alert timing and the maximum deferral time before update enforcement), you can make whatever changes are needed, either by deploying a configuration profile, or by directly modifying the script (__payload/Library/Scripts/install_or_defer.sh__) with a text editor (e.g. Atom) and building an installer package for deployment of your customized script.
+This framework is designed to work "out of the box" without any modification, but if you wish to customize the workflow to your organization's needs (e.g. changing wording in the alerts, adding corporate branding, adjusting alert timing and the maximum deferral time before update enforcement), you can make whatever changes are needed, either by deploying a configuration profile, or by directly modifying the script (__payload/Library/Scripts/Install or Defer.sh__) with a text editor (e.g. Atom) and building an installer package for deployment of your customized script.
 
 ### Configuration profile
 
@@ -91,7 +91,7 @@ There are several settings in the script that can be customized by changing defa
 
 - `SCRIPT_PATH`
 
-    The file path of the `install_or_defer.sh` script. Used in the script to assist with resource file clean-up.
+    The file path of the `Install or Defer.sh` script. Used in the script to assist with resource file clean-up.
 
 #### Messaging
 
@@ -153,7 +153,7 @@ If you make changes to the script, we recommend changing the following three thi
 
 With munkipkg installed, this command will generate a new installer package in the build folder:
 
-    munkipkg /path/to/install_or_defer
+    munkipkg /path/to/install-or-defer
 
 The subsequent installer package can be uploaded to Jamf Pro and scoped as specified below in the Jamf Pro setup section.
 
@@ -167,7 +167,7 @@ The following objects should be created on the Jamf Pro server in order to imple
 
 Upload this package (created with munkipkg above) to the Jamf Pro server via Jamf Admin or via the Jamf Pro web app:
 
-- __install_or_defer-x.x.x.pkg__
+- __install-or-defer-x.x.x.pkg__
 
 
 ### Smart Groups
@@ -195,27 +195,20 @@ Create a policy with the following criteria:
 - Name: __Install or Defer__
     - Triggers:
         - __Recurring check-in__
-        - Custom: __critical-updates__
+        - Custom: __install-or-defer__
     - Execution Frequency: __Once every week__<sup>[1](#footnote1)</sup>
     - Packages:
-        - __install_or_defer-x.x.x.pkg__
+        - __install-or-defer-x.x.x.pkg__
     - Scope:
         - One or more test Macs with one or more pending security updates.
 
 
 ## Testing
 
-1. On a test Mac in scope for the __Install or Defer__ policy, open Console.app. To display activity in OS X 10.11 and lower, filter for `install_or_defer`.
-
-    Or run this Terminal command:
-
-        tail -f /var/log/system.log | grep "install_or_defer"
-
-    To display activity in macOS 10.12 and higher, filter for the Process `logger`.
-
-    Or run this Terminal command:
-
-        log stream --style syslog --predicate 'senderImagePath ENDSWITH "logger"'
+1. On a test Mac in scope for the __Install or Defer__ policy, open Console.app and filter for the Process `logger`, or run this Terminal command:
+    ```
+    log stream --style syslog --predicate 'senderImagePath ENDSWITH "logger"'
+    ```
 
 2. Open Terminal and trigger the "stash" policy that deploys the logo graphics, if not already installed:
     ```
@@ -224,13 +217,13 @@ Create a policy with the following criteria:
 
 3. Then trigger the __Install or Defer__ policy:
     ```
-    sudo jamf policy -event critical-updates
+    sudo jamf policy -event install-or-defer
     ```
 
 4. Enter your administrative password when prompted.
 5. The policy should run and install the script/LaunchDaemon. Switch back to Console to view the output. You should see something like the following:
     ```
-    Starting install_or_defer.sh script. Performing validation and error checking...
+    Starting Install or Defer.sh script. Performing validation and error checking...
     Validation and error checking passed. Starting main process...
     Deferral deadline: 2020-01-25 12:19:55
     Time remaining: 72h:00m:00s
@@ -258,7 +251,7 @@ Create a policy with the following criteria:
 
 8. Run the following command in Terminal:
     ```
-    sudo defaults read /Library/Preferences/com.github.mpanighetti.install_or_defer
+    sudo defaults read /Library/Preferences/com.github.mpanighetti.install-or-defer
     ```
 
     You should see something similar to the following output (the numbers, which represent dates, will vary):
@@ -269,9 +262,9 @@ Create a policy with the following criteria:
 
 9. Enter the following commands to "skip ahead" to the next deferral and re-trigger the prompt:
     ```
-    sudo defaults write /Library/Preferences/com.github.mpanighetti.install_or_defer AppleSoftwareUpdatesDeferredUntil -int $(date +%s)
-    sudo launchctl unload /Library/LaunchDaemons/com.github.mpanighetti.install_or_defer.plist
-    sudo launchctl load /Library/LaunchDaemons/com.github.mpanighetti.install_or_defer.plist
+    sudo defaults write /Library/Preferences/com.github.mpanighetti.install-or-defer AppleSoftwareUpdatesDeferredUntil -int $(date +%s)
+    sudo launchctl unload /Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist
+    sudo launchctl load /Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist
     ```
 
 10. You should see the install/defer prompt appear again.
@@ -279,7 +272,7 @@ Create a policy with the following criteria:
     ![Running Updates](img/running-updates.png)
     - If you want to test the "hard" restart feature of this framework, open Terminal and type `top` before the updates finish running. Then wait 5 minutes after "soft" restart attempt, and confirm that the Mac restarts successfully.
 12. After updates are installed and (optionally) the Mac is successfully restarted, you should not see any more onscreen messages.
-13. (OPTIONAL) If an additional round of updates is needed, run `sudo jamf policy -event critical-updates` again to start the process over. Sequential updates cannot be installed as a group (see __Limitations__ section above).
+13. (OPTIONAL) If an additional round of updates is needed, run `sudo jamf policy -event install-or-defer` again to start the process over. Sequential updates cannot be installed as a group (see __Limitations__ section above).
 
 
 ## Deployment

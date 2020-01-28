@@ -23,7 +23,7 @@
 
 # Path to a plist file that is used to store settings locally. Omit ".plist"
 # extension.
-PLIST="/Library/Preferences/com.github.mpanighetti.install_or_defer"
+PLIST="/Library/Preferences/com.github.mpanighetti.install-or-defer"
 
 # (Optional) Path to a logo that will be used in messaging. Recommend 512px,
 # PNG format. If no logo is provided, the Software Update icon will be used.
@@ -32,10 +32,10 @@ LOGO=""
 # The identifier of the LaunchDaemon that is used to call this script, which
 # should match the file in the payload/Library/LaunchDaemons folder. Omit
 # ".plist" extension.
-BUNDLE_ID="com.github.mpanighetti.install_or_defer"
+BUNDLE_ID="com.github.mpanighetti.install-or-defer"
 
 # The file path of this script.
-SCRIPT_PATH="/Library/Scripts/install_or_defer.sh"
+SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 
 
 ################################## MESSAGING ##################################
@@ -405,11 +405,11 @@ fi
 # values, make a configuration profile enforcing the MaxDeferralTime (in
 # seconds) and skipDeferral (boolean) attributes in $BUNDLE_ID to settings of your
 # choice.
-SKIP_DEFERRAL=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('SkipDeferral', 'com.github.mpanighetti.install_or_defer'))" 2>/dev/null)
+SKIP_DEFERRAL=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('SkipDeferral', 'com.github.mpanighetti.install-or-defer'))" 2>/dev/null)
 if [[ "$SKIP_DEFERRAL" = "True" ]]; then
     MAX_DEFERRAL_TIME=0
 else
-    MAX_DEFERRAL_TIME_CUSTOM=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('MaxDeferralTime', 'com.github.mpanighetti.install_or_defer'))" 2>/dev/null)
+    MAX_DEFERRAL_TIME_CUSTOM=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('MaxDeferralTime', 'com.github.mpanighetti.install-or-defer'))" 2>/dev/null)
     if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
         MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
     else

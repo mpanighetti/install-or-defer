@@ -5,11 +5,11 @@
 	<key>distribution_style</key>
 	<false/>
 	<key>identifier</key>
-	<string>com.github.mpanighetti.install_or_defer</string>
+	<string>com.github.mpanighetti.install-or-defer</string>
 	<key>install_location</key>
 	<string>/</string>
 	<key>name</key>
-	<string>install_or_defer-${version}.pkg</string>
+	<string>install-or-defer-${version}.pkg</string>
 	<key>ownership</key>
 	<string>recommended</string>
 	<key>postinstall_action</key>

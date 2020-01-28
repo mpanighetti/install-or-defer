@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.github.mpanighetti.install_or_defer</string>
+	<string>com.github.mpanighetti.install-or-defer</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/bin/bash</string>
-		<string>/Library/Scripts/install_or_defer.sh</string>
+		<string>/Library/Scripts/Install or Defer.sh</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
