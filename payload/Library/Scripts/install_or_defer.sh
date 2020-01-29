@@ -23,7 +23,7 @@
 
 # Path to a plist file that is used to store settings locally. Omit ".plist"
 # extension.
-PLIST="/Library/Preferences/com.elliotjordan.install_or_defer"
+PLIST="/Library/Preferences/com.propublica.install_or_defer"
 
 # (Optional) Path to a logo that will be used in messaging. Recommend 512px,
 # PNG format. If no logo is provided, the Software Update icon will be used.
@@ -32,7 +32,7 @@ LOGO=""
 # The identifier of the LaunchDaemon that is used to call this script, which
 # should match the file in the payload/Library/LaunchDaemons folder. Omit
 # ".plist" extension.
-BUNDLE_ID="com.elliotjordan.install_or_defer"
+BUNDLE_ID="com.propublica.install_or_defer"
 
 # The file path of this script.
 SCRIPT_PATH="/Library/Scripts/install_or_defer.sh"
@@ -75,7 +75,7 @@ MSG_UPDATING="Running system updates in the background.<< Your Mac will restart 
 #################################### TIMING ###################################
 
 # Number of seconds between the first script run and the updates being forced.
-MAX_DEFERRAL_TIME=$(( 60 * 60 * 24 * 3 )) # (259200 = 3 days)
+MAX_DEFERRAL_TIME=$(( 60 * 60 * 24 * 14 )) # (259200 = 3 days)
 
 # When the user clicks "Defer" the next prompt is delayed by this much time.
 EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
@@ -393,7 +393,7 @@ fi
 # specified path, default to the Software Update icon.
 if [[ -z "$LOGO" ]] || [[ ! -f "$LOGO" ]]; then
     echo "No logo provided, or no logo exists at specified path. Using Software Update icon."
-    LOGO="/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
+    LOGO="/Users/Shared/ProPublica/ProPublica-monogram-color.png"
 fi
 
 # Validate max deferral time and whether to skip deferral. To customize these
