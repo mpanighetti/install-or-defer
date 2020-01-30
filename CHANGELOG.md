@@ -15,8 +15,10 @@ Nothing yet.
 - transitioned bundle ID (and all associated file names and references) to `com.github.mpanighetti`
 - renamed script to match project name
 - preinstall script removes both legacy and current resource files via array
+
+### Removed
+
 - removed macOS Sierra support
-- updated README to reflect current framework behavior and project goals
 
 
 ## [2.3.4] - 2020-01-21
