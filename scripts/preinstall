@@ -19,6 +19,9 @@ exec 1> >(logger -s -t "$(basename "$0")") 2>&1
 echo "Killing any active jamfHelper notifications..."
 killall jamfHelper 2>/dev/null
 
+# Clear out legacy package receipt.
+pkgutil --forget com.elliotjordan.install_or_defer
+
 # Remove all script resources (if already present on the system).
 echo "Removing existing script resources..."
 for TARGET_FILE in "${RESOURCE_FILES[@]}"; do
@@ -28,10 +31,10 @@ for TARGET_FILE in "${RESOURCE_FILES[@]}"; do
             PLIST_LABEL=$(basename "$TARGET_FILE" | awk -F.plist '{print $1}')
             if [[ $(launchctl list) == *"$PLIST_LABEL"* ]]; then
                 launchctl remove "$PLIST_LABEL"
-                echo "Unloaded LaunchDaemon: $PLIST_LABEL"
+                echo "Removed LaunchDaemon: $PLIST_LABEL"
             fi
         fi
         rm -rf "$TARGET_FILE"
-        echo "Removed file: $TARGET_FILE"
+        echo "Deleted file: $TARGET_FILE"
     fi
 done
