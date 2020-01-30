@@ -3,18 +3,18 @@
 
 ###
 #
-#            Name:  install_or_defer.sh
+#            Name:  Install or Defer.sh
 #     Description:  This script, meant to be triggered periodically by a
 #                   LaunchDaemon, will prompt users to install Apple system
 #                   updates that the IT department has deemed "critical." Users
 #                   will have the option to Run Updates or Defer. After a
 #                   specified amount of time, the update will be forced. If
 #                   updates requiring a restart were found in the update check,
-#                   restarts automatically.
-#         Authors:  Elliot Jordan and Mario Panighetti
+#                   the system restarts automatically.
+#         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2020-01-21
-#         Version:  2.3.4
+#   Last Modified:  2020-01-24
+#         Version:  3.0
 #
 ###
 
@@ -23,7 +23,7 @@
 
 # Path to a plist file that is used to store settings locally. Omit ".plist"
 # extension.
-PLIST="/Library/Preferences/com.elliotjordan.install_or_defer"
+PLIST="/Library/Preferences/com.github.mpanighetti.install-or-defer"
 
 # (Optional) Path to a logo that will be used in messaging. Recommend 512px,
 # PNG format. If no logo is provided, the Software Update icon will be used.
@@ -32,10 +32,10 @@ LOGO=""
 # The identifier of the LaunchDaemon that is used to call this script, which
 # should match the file in the payload/Library/LaunchDaemons folder. Omit
 # ".plist" extension.
-BUNDLE_ID="com.elliotjordan.install_or_defer"
+BUNDLE_ID="com.github.mpanighetti.install-or-defer"
 
 # The file path of this script.
-SCRIPT_PATH="/Library/Scripts/install_or_defer.sh"
+SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 
 
 ################################## MESSAGING ##################################
@@ -115,7 +115,7 @@ convert_seconds () {
 check_for_updates () {
 
     echo "Checking for pending system updates..."
-    UPDATE_CHECK=$(softwareupdate --list)
+    UPDATE_CHECK=$(softwareupdate --list 2>&1)
 
     # Determine whether any critical updates are available, and if any require
     # a restart. If no updates need to be installed, bail out.
@@ -135,7 +135,6 @@ check_for_updates () {
         MSG_UPDATING="$(echo "$MSG_UPDATING" | sed 's/\<\<.*\>\>//g')"
     else
         echo "No critical updates available."
-        clean_up
         exit_without_updating
     fi
 
@@ -186,20 +185,25 @@ EOF
     sleep "$UPDATE_DELAY"
     echo "$(( UPDATE_DELAY / 60 )) minutes have elapsed since user was prompted to run updates. Triggering updates..."
 
+    launchctl unload "$HELPER_LD"
+
     run_updates
 
 }
 
-# Displays HUD with updating message and runs all cached updates.
+# Displays HUD with updating message and runs all security updates (as defined
+# by previous checks).
 run_updates () {
 
-    echo "Running $INSTALL_WHICH system updates..."
+    # Display HUD with updating message.
     "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
-    UPDATE_OUTPUT_CAPTURE="$(softwareupdate --install --$INSTALL_WHICH --no-scan 2>&1)"
-    echo "Finished running updates."
-    clean_up
 
-    # Trigger restart if script ran an update which requires it.
+    # Run Apple system updates.
+    echo "Running $INSTALL_WHICH Apple system updates..."
+    UPDATE_OUTPUT_CAPTURE="$(softwareupdate --install --$INSTALL_WHICH --no-scan 2>&1)"
+    echo "Finished running Apple updates."
+
+    # Trigger restart if script found an update which requires it.
     if [[ "$INSTALL_WHICH" = "all" ]]; then
         # Shut down the Mac if BridgeOS received an update requiring it.
         if [[ "$UPDATE_OUTPUT_CAPTURE" =~ "select Shut Down from the Apple menu" ]]; then
@@ -209,6 +213,8 @@ run_updates () {
             trigger_restart "restart"
         fi
     fi
+
+    clean_up
 
 }
 
@@ -220,8 +226,7 @@ clean_up () {
     killall jamfHelper 2>/dev/null
 
     echo "Cleaning up stored plist values..."
-    defaults delete "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null
-    defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null
+    defaults delete "$PLIST" 2>/dev/null
 
     echo "Cleaning up script resources..."
     CLEANUP_FILES=(
@@ -237,7 +242,7 @@ clean_up () {
             mv -v "$TARGET_FILE" "$CLEANUP_DIR"
         fi
     done
-    if [[ $(launchctl list) =~ "${BUNDLE_ID}_helper" ]]; then
+    if [[ $(launchctl list) == *"${BUNDLE_ID}_helper"* ]]; then
         echo "Unloading ${BUNDLE_ID}_helper LaunchDaemon..."
         launchctl remove "${BUNDLE_ID}_helper"
     fi
@@ -276,16 +281,16 @@ trigger_restart () {
 
 }
 
-# Ends script without applying any system updates.
+# Ends script without applying any security updates.
 exit_without_updating () {
 
-    echo "Running jamf recon..."
+    echo "Updating Jamf Pro inventory..."
     "$JAMF_BINARY" recon
 
     clean_up
 
     # Unload main LaunchDaemon. This will likely kill the script.
-    if [[ $(launchctl list) =~ "$BUNDLE_ID" ]]; then
+    if [[ $(launchctl list) == *"$BUNDLE_ID"* ]]; then
         echo "Unloading $BUNDLE_ID LaunchDaemon..."
         launchctl remove "$BUNDLE_ID"
     fi
@@ -329,11 +334,11 @@ fi
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | awk -F . '{print $2}')
 
-# If the macOS version is not 10.12 through 10.15, this script may not work.
+# If the macOS version is not 10.13 through 10.15, this script may not work.
 # When new versions of macOS are released, this logic should be updated after
 # the script has been tested successfully.
-if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 12 ]] || [[ "$OS_MAJOR" -lt 10 ]]; then
-    echo "[ERROR] This script requires at least macOS 10.12. This Mac has $OS_MAJOR.$OS_MINOR."
+if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 13 ]] || [[ "$OS_MAJOR" -lt 10 ]]; then
+    echo "[ERROR] This script requires at least macOS 10.13. This Mac has $OS_MAJOR.$OS_MINOR."
     BAILOUT=true
 elif [[ "$OS_MAJOR" -gt 10 ]] || [[ "$OS_MINOR" -gt 15 ]]; then
     echo "[ERROR] This script has been tested through macOS 10.15 only. This Mac has $OS_MAJOR.$OS_MINOR."
@@ -374,7 +379,7 @@ if fdesetup status | grep -q "in progress"; then
 fi
 
 # If any of the errors above are present, bail out of the script now.
-if [[ "$BAILOUT" == "true" ]]; then
+if [[ "$BAILOUT" = "true" ]]; then
     START_INTERVAL=$(defaults read /Library/LaunchDaemons/$BUNDLE_ID.plist StartInterval 2>/dev/null)
     if [[ $? -eq 0 ]]; then
         echo "Stopping due to errors, but will try again in $(convert_seconds "$START_INTERVAL")."
@@ -398,13 +403,13 @@ fi
 
 # Validate max deferral time and whether to skip deferral. To customize these
 # values, make a configuration profile enforcing the MaxDeferralTime (in
-# seconds) and skipDeferral (boolean) attributes in $PLIST to settings of your
+# seconds) and skipDeferral (boolean) attributes in $BUNDLE_ID to settings of your
 # choice.
-SKIP_DEFERRAL=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('SkipDeferral', 'com.elliotjordan.install_or_defer'))" 2>/dev/null)
+SKIP_DEFERRAL=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('SkipDeferral', 'com.github.mpanighetti.install-or-defer'))" 2>/dev/null)
 if [[ "$SKIP_DEFERRAL" = "True" ]]; then
     MAX_DEFERRAL_TIME=0
 else
-    MAX_DEFERRAL_TIME_CUSTOM=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('MaxDeferralTime', 'com.elliotjordan.install_or_defer'))" 2>/dev/null)
+    MAX_DEFERRAL_TIME_CUSTOM=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('MaxDeferralTime', 'com.github.mpanighetti.install-or-defer'))" 2>/dev/null)
     if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
         MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
     else

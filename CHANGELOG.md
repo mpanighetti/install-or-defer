@@ -8,6 +8,17 @@ All notable changes to this project will be documented in this file. This projec
 Nothing yet.
 
 
+## [3.0] - 2020-01-30
+
+### Changed
+
+- transitioned bundle ID (and all associated file names and references) to `com.github.mpanighetti`
+- renamed script to match project name
+- preinstall script removes both legacy and current resource files via array
+- removed macOS Sierra support
+- updated README to reflect current framework behavior and project goals
+
+
 ## [2.3.4] - 2020-01-21
 
 ### Changed
@@ -120,7 +131,7 @@ Nothing yet.
 
 ### Removed
 
-- No longer support 10.11 and earlier
+- Removed support for OS X 10.11 or earlier
 
 
 ## [2.0] - 2019-01-10
@@ -130,7 +141,7 @@ Nothing yet.
 - added separate `$MSG_UPDATING` alert while updates are running in the background (deferred update during restart not working in 10.13+ #4)
     - gives user option to manually run updates (dynamically describes method of manual updates depending on macOS version)
 - added preflight `softwareupdate --list` (more accurate than reading from `/Library/Updates/index.plist`, with tradeoff of longer script runtime #3) before caching updates (script exits if `--list` returns no recommended results)
-- added explicit 10.13 and 10.14 support in version checks
+- added explicit macOS High Sierra and Mojave support in version checks
 
 ### Changed
 
