@@ -299,7 +299,7 @@ Once the script is debugged and updated, you can generate a new installer packag
 
 ### Error "Path had bad ownership/permissions" when running LaunchDaemon
 
-This most likely means that Install or Defer was manually downloaded and modified, and the LaunchDaemon was given incorrect ownership and permissions in the process of downloading the resource files. If you're using munkipkg to build the package, this should be fixed as of [version 3.0.1](https://github.com/mpanighetti/install-or-defer/compare/v3.0...v3.0.1), but if you're packaging the project using other means, make sure you run these commands beforehand:
+This most likely means that Install or Defer was manually downloaded and modified, and the LaunchDaemon was given incorrect ownership and permissions in the process of downloading the resource files. If you're using munkipkg to build the package, this should be fixed as of [version 3.0.1](https://github.com/mpanighetti/install-or-defer/releases/tag/v3.0.1), but if you're packaging the project using other means, make sure you run these commands beforehand:
 
 ```
 sudo chown root:wheel /path/to/install-or-defer/payload/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist
