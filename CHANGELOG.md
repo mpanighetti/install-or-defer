@@ -8,6 +8,14 @@ All notable changes to this project will be documented in this file. This projec
 Nothing yet.
 
 
+## [3.0.1] - 2020-04-02
+
+### Changed
+
+- preinstall script only attempts to forget legacy package receipt if it is present on the system
+- postinstall script sets LaunchDaemon ownership and permissions (in case files were modified prior to distribution and ownership/permissions were not properly set)
+
+
 ## [3.0] - 2020-01-30
 
 ### Changed
@@ -172,18 +180,20 @@ Nothing yet.
 - Initial release
 
 
-[Unreleased]: https://github.com/homebysix/install-or-defer/compare/v2.3.4...HEAD
-[2.3.4]: https://github.com/homebysix/install-or-defer/compare/v2.3.3...v2.3.4
-[2.3.3]: https://github.com/homebysix/install-or-defer/compare/v2.3.2...v2.3.3
-[2.3.2]: https://github.com/homebysix/install-or-defer/compare/v2.3.1...v2.3.2
-[2.3.1]: https://github.com/homebysix/install-or-defer/compare/v2.3.0...v2.3.1
-[2.3.0]: https://github.com/homebysix/install-or-defer/compare/v2.2.0.1...v2.3.0
-[2.2.0.1]: https://github.com/homebysix/install-or-defer/compare/v2.2...v2.2.0.1
-[2.2]: https://github.com/homebysix/install-or-defer/compare/v2.1.4...v2.2
-[2.1.4]: https://github.com/homebysix/install-or-defer/compare/v2.1.3...v2.1.4
-[2.1.3]: https://github.com/homebysix/install-or-defer/compare/v2.1.2...v2.1.3
-[2.1.2]: https://github.com/homebysix/install-or-defer/compare/v2.1.1...v2.1.2
-[2.1.1]: https://github.com/homebysix/install-or-defer/compare/v2.1...v2.1.1
-[2.1]: https://github.com/homebysix/install-or-defer/compare/v2.0...v2.1
-[2.0]: https://github.com/homebysix/install-or-defer/compare/v1.0.1...v2.0
-[1.0.1]: https://github.com/homebysix/install-or-defer/compare/v1.0...v1.0.1
+[Unreleased]: https://github.com/mpanighetti/install-or-defer/compare/v3.0.1...HEAD
+[3.0.1]: https://github.com/mpanighetti/install-or-defer/compare/v3.0...v3.0.1
+[3.0]: https://github.com/mpanighetti/install-or-defer/compare/v2.3.4...v3.0
+[2.3.4]: https://github.com/mpanighetti/install-or-defer/compare/v2.3.3...v2.3.4
+[2.3.3]: https://github.com/mpanighetti/install-or-defer/compare/v2.3.2...v2.3.3
+[2.3.2]: https://github.com/mpanighetti/install-or-defer/compare/v2.3.1...v2.3.2
+[2.3.1]: https://github.com/mpanighetti/install-or-defer/compare/v2.3.0...v2.3.1
+[2.3.0]: https://github.com/mpanighetti/install-or-defer/compare/v2.2.0.1...v2.3.0
+[2.2.0.1]: https://github.com/mpanighetti/install-or-defer/compare/v2.2...v2.2.0.1
+[2.2]: https://github.com/mpanighetti/install-or-defer/compare/v2.1.4...v2.2
+[2.1.4]: https://github.com/mpanighetti/install-or-defer/compare/v2.1.3...v2.1.4
+[2.1.3]: https://github.com/mpanighetti/install-or-defer/compare/v2.1.2...v2.1.3
+[2.1.2]: https://github.com/mpanighetti/install-or-defer/compare/v2.1.1...v2.1.2
+[2.1.1]: https://github.com/mpanighetti/install-or-defer/compare/v2.1...v2.1.1
+[2.1]: https://github.com/mpanighetti/install-or-defer/compare/v2.0...v2.1
+[2.0]: https://github.com/mpanighetti/install-or-defer/compare/v1.0.1...v2.0
+[1.0.1]: https://github.com/mpanighetti/install-or-defer/compare/v1.0...v1.0.1

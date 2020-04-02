@@ -13,8 +13,8 @@
 #                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2020-01-24
-#         Version:  3.0
+#   Last Modified:  2020-04-02
+#         Version:  3.0.1
 #
 ###
 
@@ -380,12 +380,7 @@ fi
 
 # If any of the errors above are present, bail out of the script now.
 if [[ "$BAILOUT" = "true" ]]; then
-    START_INTERVAL=$(defaults read /Library/LaunchDaemons/$BUNDLE_ID.plist StartInterval 2>/dev/null)
-    if [[ $? -eq 0 ]]; then
-        echo "Stopping due to errors, but will try again in $(convert_seconds "$START_INTERVAL")."
-    else
-        echo "Stopping due to errors."
-    fi
+    echo "Stopping due to errors."
     exit 1
 else
     echo "Validation and error checking passed. Starting main process..."

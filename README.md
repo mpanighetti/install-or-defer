@@ -295,10 +295,22 @@ Note that any computers which have already received the framework push will cont
 Once the script is debugged and updated, you can generate a new installer package, upload the package to the Jamf Pro server, link it to the policy, and re-enable the policy. The preinstall script will remove any existing resources and replace them with your modified files.
 
 
+## Troubleshooting
+
+### Error "Path had bad ownership/permissions" when running LaunchDaemon
+
+This most likely means that Install or Defer was manually downloaded and modified, and the LaunchDaemon was given incorrect ownership and permissions in the process of downloading the resource files. If you're using munkipkg to build the package, this should be fixed as of [version 3.0.1](https://github.com/mpanighetti/install-or-defer/compare/v3.0...v3.0.1), but if you're packaging the project using other means, make sure you run these commands beforehand:
+
+```
+sudo chown root:wheel /path/to/install-or-defer/payload/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist
+sudo chmod 644 /path/to/install-or-defer/payload/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist
+```
+
+
 ## Miscellaneous Notes
 
 - Feel free to change the `com.github.mpanighetti` style identifier to match your company instead. If you do this, make sure to update the filenames of the LaunchDaemons, their corresponding file paths in the preinstall and postinstall scripts, and the `$BUNDLE_ID` variable in the script.
-- You can also specify a different default logo, if you'd rather not use the Software Update icon. `jamfHelper` supports .icns and .png files.
+- You can specify a different default logo if you'd rather not use the Software Update icon (e.g. corporate branding). `jamfHelper` supports .icns and .png files.
 - If you encounter any issues or have questions, please open an issue on this GitHub repo.
 
 Enjoy!
