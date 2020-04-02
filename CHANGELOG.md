@@ -12,7 +12,7 @@ Nothing yet.
 
 ### Changed
 
-- removed unused StartInterval attribute read
+- removed unused `StartInterval` attribute read
 - preinstall script only attempts to forget legacy package receipt if it is present on the system
 - postinstall script sets LaunchDaemon ownership and permissions (in case files were modified prior to distribution and ownership/permissions were not properly set) #36
 - removed logger code from preinstall and postinstall scripts (install.log can be used for installer diagnostic purposes in these cases)
