@@ -324,8 +324,8 @@ if [[ ! -x "$JAMFHELPER" ]]; then
 fi
 
 # Bail out if the jamf binary doesn't exist.
-JAMF_BINARY=$(which jamf)
-if [[ -z $JAMF_BINARY ]]; then
+JAMF_BINARY="/usr/local/bin/jamf"
+if [[ ! -e "$JAMF_BINARY" ]]; then
     echo "[ERROR] The jamf binary could not be found."
     BAILOUT=true
 fi
@@ -356,11 +356,7 @@ else
 fi
 
 # We need to be connected to the internet in order to download updates.
-ping -q -c 1 208.67.222.222 &>/dev/null
-if [[ $? -ne 0 ]]; then
-    echo "[ERROR] No connection to the Internet."
-    BAILOUT=true
-else
+if ping -q -c 1 208.67.222.222; then
     # Check if a custom CatalogURL is set and if it is available
     SU_CATALOG=$(python -c 'from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue("CatalogURL", "com.apple.SoftwareUpdate")')
     if [[ "$SU_CATALOG" != "None" ]]; then
@@ -369,6 +365,9 @@ else
             BAILOUT=true
         fi
     fi
+else
+    echo "[ERROR] No connection to the Internet."
+    BAILOUT=true
 fi
 
 # If FileVault encryption or decryption is in progress, installing updates that
@@ -411,7 +410,7 @@ else
         echo "Max deferral time undefined, or not set to a positive integer. Using default value."
     fi
 fi
-echo "Maximum deferral time: $(convert_seconds $MAX_DEFERRAL_TIME)"
+echo "Maximum deferral time: $(convert_seconds "$MAX_DEFERRAL_TIME")"
 
 # Perform first run tasks, including calculating deadline.
 FORCE_DATE=$(defaults read "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null)
