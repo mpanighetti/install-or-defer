@@ -12,15 +12,14 @@ RESOURCE_FILES=(
     "$3/private/tmp/install-or-defer"
 )
 
-# Copy all output to the system log for diagnostic purposes.
-exec 1> >(logger -s -t "$(basename "$0")") 2>&1
-
 # Kill jamfHelper process to close all current notifications.
 echo "Killing any active jamfHelper notifications..."
 killall jamfHelper 2>/dev/null
 
-# Clear out legacy package receipt.
-pkgutil --forget com.elliotjordan.install_or_defer
+# Clear out legacy package receipt (if present).
+if [[ $(pkgutil --pkgs | grep -q "com.elliotjordan.install_or_defer"; echo $?) -eq 0 ]]; then
+    pkgutil --forget "com.elliotjordan.install_or_defer"
+fi
 
 # Remove all script resources (if already present on the system).
 echo "Removing existing script resources..."

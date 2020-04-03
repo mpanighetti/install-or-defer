@@ -223,30 +223,30 @@ Create a policy with the following criteria:
 4. Enter your administrative password when prompted.
 5. The policy should run and install the script/LaunchDaemon. Switch back to Console to view the output. You should see something like the following:
     ```
-    Starting Install or Defer.sh script. Performing validation and error checking...
-    Validation and error checking passed. Starting main process...
-    Deferral deadline: 2020-01-25 12:19:55
-    Time remaining: 72h:00m:00s
-    Checking for pending system updates...
-    Caching all system updates...
-    Software Update Tool
-
-    Finding available software
-    Software Update found the following new or updated software:
-    * Label: macOS 10.15 Update-
-        Title: macOS 10.15 Update, Version:  , Size: 962326K, Recommended: YES, Action: restart,
-
-    Downloaded macOS 10.15 Update-
-    Done.
-    Prompting to install updates now or defer...
+    default	16:21:07.693371 -0700	logger	Starting Install or Defer.sh script. Performing validation and error checking...
+    default	16:21:09.153793 -0700	logger	Validation and error checking passed. Starting main process...
+    default	16:21:09.153839 -0700	logger	No logo provided, or no logo exists at specified path. Using Software Update icon.
+    default	16:21:09.884776 -0700	logger	Maximum deferral time: 72h:00m:00s
+    default	16:21:10.024080 -0700	logger	Deferral deadline: 2020-04-05 16:21:09
+    default	16:21:10.026087 -0700	logger	Time remaining: 71h:59m:59s
+    default	16:21:10.044935 -0700	logger	Checking for pending system updates...
+    default	16:21:20.041968 -0700	logger	Caching all system updates...
+    default	16:21:39.218631 -0700	logger	Software Update Tool
+    default	16:21:39.218681 -0700	logger
+    default	16:21:39.218704 -0700	logger	Finding available software
+    default	16:21:39.218724 -0700	logger
+    default	16:21:39.326278 -0700	logger	Downloaded Safari
+    default	16:24:26.066989 -0700	logger	Downloading Security Update 2020-002
+    default	16:24:26.067232 -0700	logger	Downloaded Security Update 2020-002
+    default	16:24:26.067356 -0700	logger	Done.
+    default	16:24:26.122639 -0700	logger	Prompting to install updates now or defer...
     ```
 
 6. After the updates are downloaded, you should see the following prompt appear onscreen:
     ![Install or Defer](img/install-or-defer.png)
 7. Click __Defer__. You should see something like the following output appear in Console:
     ```
-    User clicked Defer after 00h:00m:20s.
-    Next prompt will appear after 2020-01-25 16:20:05.
+    default	16:24:34.444397 -0700	logger	User clicked Defer after 00h:00m:08s.
     ```
 
 8. Run the following command in Terminal:
@@ -256,8 +256,8 @@ Create a policy with the following criteria:
 
     You should see something similar to the following output (the numbers, which represent dates, will vary):
         ```
-            AppleSoftwareUpdatesDeferredUntil = 1579971863;
-            AppleSoftwareUpdatesForcedAfter = 1579986263;
+        AppleSoftwareUpdatesDeferredUntil = 1585884274;
+        AppleSoftwareUpdatesForcedAfter = 1586042469;
         ```
 
 9. Enter the following commands to "skip ahead" to the next deferral and re-trigger the prompt:
@@ -295,10 +295,22 @@ Note that any computers which have already received the framework push will cont
 Once the script is debugged and updated, you can generate a new installer package, upload the package to the Jamf Pro server, link it to the policy, and re-enable the policy. The preinstall script will remove any existing resources and replace them with your modified files.
 
 
+## Troubleshooting
+
+### Error "Path had bad ownership/permissions" when running LaunchDaemon
+
+This most likely means that Install or Defer was manually downloaded and modified, and the LaunchDaemon was given incorrect ownership and permissions in the process of downloading the resource files. If you're using munkipkg to build the package, this should be fixed as of [version 3.0.1](https://github.com/mpanighetti/install-or-defer/releases/tag/v3.0.1), but if you're packaging the project using other means, make sure you run these commands beforehand:
+
+```
+sudo chown root:wheel /path/to/install-or-defer/payload/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist
+sudo chmod 644 /path/to/install-or-defer/payload/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist
+```
+
+
 ## Miscellaneous Notes
 
 - Feel free to change the `com.github.mpanighetti` style identifier to match your company instead. If you do this, make sure to update the filenames of the LaunchDaemons, their corresponding file paths in the preinstall and postinstall scripts, and the `$BUNDLE_ID` variable in the script.
-- You can also specify a different default logo, if you'd rather not use the Software Update icon. `jamfHelper` supports .icns and .png files.
+- You can specify a different default logo if you'd rather not use the Software Update icon (e.g. corporate branding). `jamfHelper` supports .icns and .png files.
 - If you encounter any issues or have questions, please open an issue on this GitHub repo.
 
 Enjoy!

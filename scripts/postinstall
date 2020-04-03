@@ -1,8 +1,11 @@
-#!/bin/bash
-
-# Copy all output to the system log for diagnostic purposes.
-exec 1> >(logger -s -t "$(basename "$0")") 2>&1
+#!/bin/sh
 
 MAIN_LD="$3/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist"
 
+# Set ownership and permissions on LaunchDaemon (in case files were modified
+# prior to distribution and ownership/permissions were not properly set).
+chown root:wheel "$MAIN_LD"
+chmod 644 "$MAIN_LD"
+
+# Load LaunchDaemon.
 launchctl load -w "$MAIN_LD"
