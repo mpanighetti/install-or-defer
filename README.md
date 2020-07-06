@@ -9,19 +9,26 @@ This workflow is most useful for updates that require a restart and include impo
 This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer package when changes are made to the script or to the LaunchDaemon that runs it (despite the name, packages generated with munkipkg don't require Munki; they work great with Jamf Pro). See the [Installer creation](#installer-creation) section below for specific steps on creating the installer for this framework.
 
 
-## Requirements and assumptions
+## Requirements
 
 Here's what needs to be in place in order to use this framework:
 
 - The current version of this framework has been tested only on __macOS 10.13 through 10.15__, but older versions should continue to function normally for previous macOS builds (note, however, that those versions of macOS are no longer receiving regular security updates from Apple and thus may not benefit from this framework).
 - Target Macs must be __enrolled in Jamf Pro__ and have the `jamfHelper` binary installed.
-- We're assuming that __an automatic restart is desired when updates require it__.
-- We're assuming that the Jamf Pro server has one or more policies that regularly collect inventory updates from the Mac fleet. This will ensure that Install or Defer is only pushed to a Mac that has a pending update and avoids false-positive script runs (even though the script will not display any alerts if no updates are needed, pushing it to a Mac that doesn't need it results in unnecessary memory and network bandwidth usage and should be avoided).
+
+## Optional
 
 You might also consider the following optional configurations:
 
 - A __company logo__ graphic file in a "stash" on each Mac (if no logo is provided, the Software Update icon will be used).
 - A __Mac with Content Caching service active__ at all major office locations. This will conserve network bandwidth and improve the download speed of updates.
+
+## Assumptions
+
+The following is assumed to be the case when implementing this framework:
+
+- __An automatic restart is desired when updates require it__. This script is not necessary if restart-required updates are not mandatory within your environment and are instead left up to the person managing the Mac.
+- __The Jamf Pro server has one or more policies that regularly collect inventory updates from the Mac fleet__. This will ensure that Install or Defer is only pushed to a Mac that has a pending update and avoids false-positive script runs (even though the script will not display any alerts if no updates are needed, pushing it to a Mac that doesn't need it results in unnecessary memory and network bandwidth usage and should be avoided).
 
 
 ## Workflow detail

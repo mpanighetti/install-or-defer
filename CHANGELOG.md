@@ -8,6 +8,25 @@ All notable changes to this project will be documented in this file. This projec
 Nothing yet.
 
 
+## [3.0.2] - 2020-07-06
+
+### Changed
+
+- removed `CatalogURL` check from macOS 11+ (custom catalog URL definition is deprecated in Catalina and not supported in Big Sur)
+- removed all Python calls to prepare for eventual Python runtime removal in future macOS releases
+    - replaced managed preferences read commands with `defaults read` pointed at the `/Library/Managed Preferences/` file path
+- restored `StartInterval` attribute read
+    - added comment for context of purpose
+- replaced `[ERROR]` with `❌ ERROR:`
+- added full binary paths (except for built-ins)
+- double-quote-surrounded file paths and variables
+- removed error code parsing to avoid ShellCheck flags
+- removed `shellcheck disable` definitions
+- iterated version to 3.0.2
+- updated ShellCheck job to use latest version of [azohra/shell-linter](https://github.com/azohra/shell-linter)
+- separated optional content from required in README for improved legibility
+
+
 ## [3.0.1] - 2020-04-02
 
 ### Changed
