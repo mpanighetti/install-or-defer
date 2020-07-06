@@ -202,7 +202,8 @@ Nothing yet.
 - Initial release
 
 
-[Unreleased]: https://github.com/mpanighetti/install-or-defer/compare/v3.0.1...HEAD
+[Unreleased]: https://github.com/mpanighetti/install-or-defer/compare/v3.0.2...HEAD
+[3.0.2]: https://github.com/mpanighetti/install-or-defer/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/mpanighetti/install-or-defer/compare/v3.0...v3.0.1
 [3.0]: https://github.com/mpanighetti/install-or-defer/compare/v2.3.4...v3.0
 [2.3.4]: https://github.com/mpanighetti/install-or-defer/compare/v2.3.3...v2.3.4
