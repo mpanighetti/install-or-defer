@@ -22,7 +22,6 @@ Nothing yet.
 - double-quote-surrounded file paths and variables
 - removed error code parsing to avoid ShellCheck flags
 - removed `shellcheck disable` definitions
-- iterated version to 3.0.2
 - updated ShellCheck job to use latest version of [azohra/shell-linter](https://github.com/azohra/shell-linter)
 - separated optional content from required in README for improved legibility
 
