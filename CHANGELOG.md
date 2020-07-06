@@ -17,7 +17,7 @@ Nothing yet.
     - replaced managed preferences read commands with `defaults read` pointed at the `/Library/Managed Preferences/` file path
 - restored `StartInterval` attribute read
     - added comment for context of purpose
-- replaced `[ERROR]` with `❌ ERROR:`
+- replaced `[ERROR]` with `❌ ERROR:` in script output
 - added full binary paths (except for built-ins)
 - double-quote-surrounded file paths and variables
 - removed error code parsing to avoid ShellCheck flags
