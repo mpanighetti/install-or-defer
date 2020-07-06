@@ -17,8 +17,11 @@ Here's what needs to be in place in order to use this framework:
 - Target Macs must be __enrolled in Jamf Pro__ and have the `jamfHelper` binary installed.
 - We're assuming that __an automatic restart is desired when updates require it__.
 - We're assuming that the Jamf Pro server has one or more policies that regularly collect inventory updates from the Mac fleet. This will ensure that Install or Defer is only pushed to a Mac that has a pending update and avoids false-positive script runs (even though the script will not display any alerts if no updates are needed, pushing it to a Mac that doesn't need it results in unnecessary memory and network bandwidth usage and should be avoided).
-- Optional: a __company logo__ graphic file in a "stash" on each Mac (if no logo is provided, the Software Update icon will be used).
-- Optional but recommended: a __Mac with Content Caching service active__ at all major office locations. This will conserve network bandwidth and improve the download speed of updates.
+
+You might also consider the following optional configurations:
+
+- A __company logo__ graphic file in a "stash" on each Mac (if no logo is provided, the Software Update icon will be used).
+- A __Mac with Content Caching service active__ at all major office locations. This will conserve network bandwidth and improve the download speed of updates.
 
 
 ## Workflow detail
