@@ -14,11 +14,11 @@ RESOURCE_FILES=(
 
 # Kill jamfHelper process to close all current notifications.
 echo "Killing any active jamfHelper notifications..."
-killall jamfHelper 2>/dev/null
+/usr/bin/killall jamfHelper 2>"/dev/null"
 
 # Clear out legacy package receipt (if present).
-if [[ $(pkgutil --pkgs | grep -q "com.elliotjordan.install_or_defer"; echo $?) -eq 0 ]]; then
-    pkgutil --forget "com.elliotjordan.install_or_defer"
+if [[ $(/usr/sbin/pkgutil --pkgs) == *"com.elliotjordan.install_or_defer"* ]]; then
+    /usr/sbin/pkgutil --forget "com.elliotjordan.install_or_defer"
 fi
 
 # Remove all script resources (if already present on the system).
@@ -27,13 +27,13 @@ for TARGET_FILE in "${RESOURCE_FILES[@]}"; do
     if [[ -e "$TARGET_FILE" ]]; then
         # If plist is loaded as a LaunchDaemon, unload it.
         if [[ "$TARGET_FILE" == *".plist" ]]; then
-            PLIST_LABEL=$(basename "$TARGET_FILE" | awk -F.plist '{print $1}')
-            if [[ $(launchctl list) == *"$PLIST_LABEL"* ]]; then
-                launchctl remove "$PLIST_LABEL"
+            PLIST_LABEL=$(/usr/bin/basename "$TARGET_FILE" | /usr/bin/awk -F.plist '{print $1}')
+            if [[ $(/bin/launchctl list) == *"$PLIST_LABEL"* ]]; then
+                /bin/launchctl remove "$PLIST_LABEL"
                 echo "Removed LaunchDaemon: $PLIST_LABEL"
             fi
         fi
-        rm -rf "$TARGET_FILE"
+        /bin/rm -rf "$TARGET_FILE"
         echo "Deleted file: $TARGET_FILE"
     fi
 done
