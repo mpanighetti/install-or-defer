@@ -1,5 +1,4 @@
 #!/bin/bash
-# shellcheck disable=SC2001,SC2004
 
 ###
 #
@@ -13,8 +12,8 @@
 #                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2020-04-02
-#         Version:  3.0.1
+#   Last Modified:  2020-07-06
+#         Version:  3.0.2
 #
 ###
 
@@ -106,7 +105,7 @@ convert_seconds () {
         ((MINUTES=(${1}%3600)/60))
         ((SECONDS=${1}%60))
     fi
-    printf "%02dh:%02dm:%02ds\n" $HOURS $MINUTES $SECONDS
+    printf "%02dh:%02dm:%02ds\n" "$HOURS" "$MINUTES" "$SECONDS"
 
 }
 
@@ -115,7 +114,7 @@ convert_seconds () {
 check_for_updates () {
 
     echo "Checking for pending system updates..."
-    UPDATE_CHECK=$(softwareupdate --list 2>&1)
+    UPDATE_CHECK=$(/usr/sbin/softwareupdate --list 2>&1)
 
     # Determine whether any critical updates are available, and if any require
     # a restart. If no updates need to be installed, bail out.
@@ -123,16 +122,16 @@ check_for_updates () {
         INSTALL_WHICH="all"
         # Remove "<<" and ">>" but leave the text between
         # (retains restart warnings).
-        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/[\<\<|\>\>]//g')"
-        MSG_ACT="$(echo "$MSG_ACT" | sed 's/[\<\<|\>\>]//g')"
-        MSG_UPDATING="$(echo "$MSG_UPDATING" | sed 's/[\<\<|\>\>]//g')"
+        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
+        MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
+        MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
     elif [[ "$UPDATE_CHECK" =~ (Recommended: YES|\[recommended\]) ]]; then
         INSTALL_WHICH="recommended"
         # Remove "<<" and ">>" including all the text between
         # (removes restart warnings).
-        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/\<\<.*\>\>//g')"
-        MSG_ACT="$(echo "$MSG_ACT" | sed 's/\<\<.*\>\>//g')"
-        MSG_UPDATING="$(echo "$MSG_UPDATING" | sed 's/\<\<.*\>\>//g')"
+        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/\<\<.*\>\>//g')"
+        MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed 's/\<\<.*\>\>//g')"
+        MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/\<\<.*\>\>//g')"
     else
         echo "No critical updates available."
         exit_without_updating
@@ -141,7 +140,7 @@ check_for_updates () {
     # Download updates (all updates if a restart is required for any, otherwise
     # just recommended updates).
     echo "Caching $INSTALL_WHICH system updates..."
-    softwareupdate --download --$INSTALL_WHICH --no-scan
+    /usr/sbin/softwareupdate --download --$INSTALL_WHICH --no-scan
 
 }
 
@@ -150,15 +149,15 @@ check_for_updates () {
 display_act_msg () {
 
     # Create a jamfHelper script that will be called by a LaunchDaemon.
-    cat << EOF > "$HELPER_SCRIPT"
+    /bin/cat << EOF > "$HELPER_SCRIPT"
 #!/bin/bash
 "$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_HEADING" -description "$MSG_ACT"
 EOF
-    chmod +x "$HELPER_SCRIPT"
+    /bin/chmod +x "$HELPER_SCRIPT"
 
     # Create the LaunchDaemon that we'll use to show the persistent jamfHelper
     # messages.
-    cat << EOF > "$HELPER_LD"
+    /bin/cat << EOF > "$HELPER_LD"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -177,15 +176,15 @@ EOF
 
     # Load the LaunchDaemon to show the jamfHelper message.
     echo "Displaying \"run updates\" message..."
-    killall jamfHelper 2>/dev/null
-    launchctl load -w "$HELPER_LD"
+    /usr/bin/killall jamfHelper 2>"/dev/null"
+    /bin/launchctl load -w "$HELPER_LD"
 
     # After specified delay, apply updates.
     echo "Waiting $(( UPDATE_DELAY / 60 )) minutes before automatically applying updates..."
-    sleep "$UPDATE_DELAY"
+    /bin/sleep "$UPDATE_DELAY"
     echo "$(( UPDATE_DELAY / 60 )) minutes have elapsed since user was prompted to run updates. Triggering updates..."
 
-    launchctl unload "$HELPER_LD"
+    /bin/launchctl unload "$HELPER_LD"
 
     run_updates
 
@@ -200,13 +199,13 @@ run_updates () {
 
     # Run Apple system updates.
     echo "Running $INSTALL_WHICH Apple system updates..."
-    UPDATE_OUTPUT_CAPTURE="$(softwareupdate --install --$INSTALL_WHICH --no-scan 2>&1)"
+    UPDATE_OUTPUT_CAPTURE="$(/usr/sbin/softwareupdate --install --$INSTALL_WHICH --no-scan 2>&1)"
     echo "Finished running Apple updates."
 
     # Trigger restart if script found an update which requires it.
     if [[ "$INSTALL_WHICH" = "all" ]]; then
         # Shut down the Mac if BridgeOS received an update requiring it.
-        if [[ "$UPDATE_OUTPUT_CAPTURE" =~ "select Shut Down from the Apple menu" ]]; then
+        if [[ "$UPDATE_OUTPUT_CAPTURE" == *"select Shut Down from the Apple menu"* ]]; then
             trigger_restart "shut down"
         # Otherwise, restart the Mac.
         else
@@ -223,10 +222,10 @@ run_updates () {
 clean_up () {
 
     echo "Killing any active jamfHelper notifications..."
-    killall jamfHelper 2>/dev/null
+    /usr/bin/killall jamfHelper 2>"/dev/null"
 
     echo "Cleaning up stored plist values..."
-    defaults delete "$PLIST" 2>/dev/null
+    /usr/bin/defaults delete "$PLIST" 2>"/dev/null"
 
     echo "Cleaning up script resources..."
     CLEANUP_FILES=(
@@ -236,15 +235,15 @@ clean_up () {
         "$SCRIPT_PATH"
     )
     CLEANUP_DIR="/private/tmp/install-or-defer"
-    mkdir "$CLEANUP_DIR"
+    /bin/mkdir "$CLEANUP_DIR"
     for TARGET_FILE in "${CLEANUP_FILES[@]}"; do
         if [[ -e "$TARGET_FILE" ]]; then
-            mv -v "$TARGET_FILE" "$CLEANUP_DIR"
+            /bin/mv -v "$TARGET_FILE" "$CLEANUP_DIR"
         fi
     done
-    if [[ $(launchctl list) == *"${BUNDLE_ID}_helper"* ]]; then
+    if [[ $(/bin/launchctl list) == *"${BUNDLE_ID}_helper"* ]]; then
         echo "Unloading ${BUNDLE_ID}_helper LaunchDaemon..."
-        launchctl remove "${BUNDLE_ID}_helper"
+        /bin/launchctl remove "${BUNDLE_ID}_helper"
     fi
 
 }
@@ -259,13 +258,13 @@ trigger_restart () {
     # Immediately attempt a "soft" restart.
     echo "Attempting a \"soft\" $1..."
     CURRENT_USER=$(/usr/bin/stat -f%Su /dev/console)
-    USER_ID=$(id -u "$CURRENT_USER")
-    launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
+    USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
+    /bin/launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
 
     # After specified delay, kill all apps forcibly, which clears the way for
     # an unobstructed restart.
     echo "Waiting $(( HARD_RESTART_DELAY / 60 )) minutes before forcing a \"hard\" $1..."
-    sleep "$HARD_RESTART_DELAY"
+    /bin/sleep "$HARD_RESTART_DELAY"
     echo "$(( HARD_RESTART_DELAY / 60 )) minutes have elapsed since \"soft\" $1 was attempted. Forcing \"hard\" $1..."
 
     USER_PIDS=$(pgrep -u "$USER_ID")
@@ -276,7 +275,7 @@ trigger_restart () {
             kill -9 "$PID"
         fi
     done
-    launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
+    /bin/launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
     # Mac should restart now, ending this script and installing updates.
 
 }
@@ -290,9 +289,9 @@ exit_without_updating () {
     clean_up
 
     # Unload main LaunchDaemon. This will likely kill the script.
-    if [[ $(launchctl list) == *"$BUNDLE_ID"* ]]; then
+    if [[ $(/bin/launchctl list) == *"$BUNDLE_ID"* ]]; then
         echo "Unloading $BUNDLE_ID LaunchDaemon..."
-        launchctl remove "$BUNDLE_ID"
+        /bin/launchctl remove "$BUNDLE_ID"
     fi
     echo "Script will end here."
     exit 0
@@ -303,14 +302,14 @@ exit_without_updating () {
 ######################## VALIDATION AND ERROR CHECKING ########################
 
 # Copy all output to the system log for diagnostic purposes.
-exec 1> >(logger -s -t "$(basename "$0")") 2>&1
-echo "Starting $(basename "$0") script. Performing validation and error checking..."
+exec 1> >(/usr/bin/logger -s -t "$(/usr/bin/basename "$0")") 2>&1
+echo "Starting $(/usr/bin/basename "$0") script. Performing validation and error checking..."
 
 # Define custom $PATH.
 PATH="/usr/sbin:/usr/bin:/usr/local/bin:$PATH"
 
 # Filename and path we will use for the auto-generated helper script and LaunchDaemon.
-HELPER_SCRIPT="/Library/Scripts/$(basename "$0" | sed "s/.sh$//g")_helper.sh"
+HELPER_SCRIPT="/Library/Scripts/$(/usr/bin/basename "$0" | /usr/bin/sed "s/.sh$//g")_helper.sh"
 HELPER_LD="/Library/LaunchDaemons/${BUNDLE_ID}_helper.plist"
 
 # Flag variable for catching show-stopping errors.
@@ -319,29 +318,29 @@ BAILOUT=false
 # Bail out if the jamfHelper doesn't exist.
 JAMFHELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
 if [[ ! -x "$JAMFHELPER" ]]; then
-    echo "[ERROR] The jamfHelper binary must be present in order to run this script."
+    echo "❌ ERROR: The jamfHelper binary must be present in order to run this script."
     BAILOUT=true
 fi
 
 # Bail out if the jamf binary doesn't exist.
 JAMF_BINARY="/usr/local/bin/jamf"
 if [[ ! -e "$JAMF_BINARY" ]]; then
-    echo "[ERROR] The jamf binary could not be found."
+    echo "❌ ERROR: The jamf binary could not be found."
     BAILOUT=true
 fi
 
 # Determine macOS version.
-OS_MAJOR=$(/usr/bin/sw_vers -productVersion | awk -F . '{print $1}')
-OS_MINOR=$(/usr/bin/sw_vers -productVersion | awk -F . '{print $2}')
+OS_MAJOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $1}')
+OS_MINOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $2}')
 
 # If the macOS version is not 10.13 through 10.15, this script may not work.
 # When new versions of macOS are released, this logic should be updated after
 # the script has been tested successfully.
 if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 13 ]] || [[ "$OS_MAJOR" -lt 10 ]]; then
-    echo "[ERROR] This script requires at least macOS 10.13. This Mac has $OS_MAJOR.$OS_MINOR."
+    echo "❌ ERROR: This script requires at least macOS 10.13. This Mac has $OS_MAJOR.$OS_MINOR."
     BAILOUT=true
 elif [[ "$OS_MAJOR" -gt 10 ]] || [[ "$OS_MINOR" -gt 15 ]]; then
-    echo "[ERROR] This script has been tested through macOS 10.15 only. This Mac has $OS_MAJOR.$OS_MINOR."
+    echo "❌ ERROR: This script has been tested through macOS 10.15 only. This Mac has $OS_MAJOR.$OS_MINOR."
     BAILOUT=true
 else
     if [[ "$OS_MINOR" -lt 14 ]]; then
@@ -356,30 +355,39 @@ else
 fi
 
 # We need to be connected to the internet in order to download updates.
-if ping -q -c 1 208.67.222.222; then
+if /sbin/ping -q -c 1 208.67.222.222; then
     # Check if a custom CatalogURL is set and if it is available
-    SU_CATALOG=$(python -c 'from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue("CatalogURL", "com.apple.SoftwareUpdate")')
-    if [[ "$SU_CATALOG" != "None" ]]; then
-        if /usr/bin/curl --user-agent "Darwin/$(uname -r)" -s --head "$SU_CATALOG" | grep "200 OK" > /dev/null; then
-            echo "[ERROR] Software update catalog can not be reached."
-            BAILOUT=true
+    # (deprecated in macOS 11+).
+    if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 16 ]]; then
+        SU_CATALOG=$(/usr/bin/defaults read "/Library/Managed Preferences/com.apple.SoftwareUpdate" CatalogURL 2>"/dev/null")
+        if [[ "$SU_CATALOG" != "None" ]]; then
+            if /usr/bin/curl --user-agent "Darwin/$(/usr/bin/uname -r)" -s --head "$SU_CATALOG" | /usr/bin/grep "200 OK" >"/dev/null"; then
+                echo "❌ ERROR: Software update catalog can not be reached."
+                BAILOUT=true
+            fi
         fi
     fi
 else
-    echo "[ERROR] No connection to the Internet."
+    echo "❌ ERROR: No connection to the Internet."
     BAILOUT=true
 fi
 
 # If FileVault encryption or decryption is in progress, installing updates that
 # require a restart can cause problems.
-if fdesetup status | grep -q "in progress"; then
-    echo "[ERROR] FileVault encryption or decryption is in progress."
+if /usr/bin/fdesetup status | /usr/bin/grep -q "in progress"; then
+    echo "❌ ERROR: FileVault encryption or decryption is in progress."
     BAILOUT=true
 fi
 
 # If any of the errors above are present, bail out of the script now.
 if [[ "$BAILOUT" = "true" ]]; then
-    echo "Stopping due to errors."
+    # Checks for StartInterval definition in LaunchDaemon.
+    START_INTERVAL=$(/usr/bin/defaults read "/Library/LaunchDaemons/$BUNDLE_ID.plist" StartInterval 2>"/dev/null")
+    if [[ -n "$START_INTERVAL" ]]; then
+        echo "Stopping due to errors, but will try again in $(convert_seconds "$START_INTERVAL")."
+    else
+        echo "Stopping due to errors."
+    fi
     exit 1
 else
     echo "Validation and error checking passed. Starting main process..."
@@ -397,13 +405,13 @@ fi
 
 # Validate max deferral time and whether to skip deferral. To customize these
 # values, make a configuration profile enforcing the MaxDeferralTime (in
-# seconds) and skipDeferral (boolean) attributes in $BUNDLE_ID to settings of your
-# choice.
-SKIP_DEFERRAL=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('SkipDeferral', 'com.github.mpanighetti.install-or-defer'))" 2>/dev/null)
+# seconds) and SkipDeferral (boolean) attributes in $BUNDLE_ID to settings of
+# your choice.
+SKIP_DEFERRAL=$(/usr/bin/defaults read "/Library/Managed Preferences/$BUNDLE_ID" SkipDeferral 2>"/dev/null")
 if [[ "$SKIP_DEFERRAL" = "True" ]]; then
     MAX_DEFERRAL_TIME=0
 else
-    MAX_DEFERRAL_TIME_CUSTOM=$(python -c "import CoreFoundation; print(CoreFoundation.CFPreferencesCopyAppValue('MaxDeferralTime', 'com.github.mpanighetti.install-or-defer'))" 2>/dev/null)
+    MAX_DEFERRAL_TIME_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/$BUNDLE_ID" MaxDeferralTime 2>"/dev/null")
     if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
         MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
     else
@@ -413,24 +421,24 @@ fi
 echo "Maximum deferral time: $(convert_seconds "$MAX_DEFERRAL_TIME")"
 
 # Perform first run tasks, including calculating deadline.
-FORCE_DATE=$(defaults read "$PLIST" AppleSoftwareUpdatesForcedAfter 2>/dev/null)
-if [[ -z $FORCE_DATE || $FORCE_DATE -gt $(( $(date +%s) + MAX_DEFERRAL_TIME )) ]]; then
-    FORCE_DATE=$(( $(date +%s) + MAX_DEFERRAL_TIME ))
-    defaults write "$PLIST" AppleSoftwareUpdatesForcedAfter -int $FORCE_DATE
+FORCE_DATE=$(defaults read "$PLIST" AppleSoftwareUpdatesForcedAfter 2>"/dev/null")
+if [[ -z $FORCE_DATE || $FORCE_DATE -gt $(( $(/bin/date +%s) + MAX_DEFERRAL_TIME )) ]]; then
+    FORCE_DATE=$(( $(/bin/date +%s) + MAX_DEFERRAL_TIME ))
+    /usr/bin/defaults write "$PLIST" AppleSoftwareUpdatesForcedAfter -int $FORCE_DATE
 fi
 
 # Calculate how much time remains until deferral deadline.
-DEFER_TIME_LEFT=$(( FORCE_DATE - $(date +%s) ))
-echo "Deferral deadline: $(date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$FORCE_DATE")"
+DEFER_TIME_LEFT=$(( FORCE_DATE - $(/bin/date +%s) ))
+echo "Deferral deadline: $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$FORCE_DATE")"
 echo "Time remaining: $(convert_seconds $DEFER_TIME_LEFT)"
 
 # Get the "deferred until" timestamp, if one exists.
-DEFERRED_UNTIL=$(defaults read "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null)
-if [[ -n "$DEFERRED_UNTIL" ]] && (( DEFERRED_UNTIL > $(date +%s) && FORCE_DATE > DEFERRED_UNTIL )); then
+DEFERRED_UNTIL=$(defaults read "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>"/dev/null")
+if [[ -n "$DEFERRED_UNTIL" ]] && (( DEFERRED_UNTIL > $(/bin/date +%s) && FORCE_DATE > DEFERRED_UNTIL )); then
     # If the policy ran recently and was deferred, we need to respect that
     # "defer until" timestamp, as long as it is earlier than the deferral
     # deadline.
-    echo "The next prompt is deferred until after $(date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$DEFERRED_UNTIL")."
+    echo "The next prompt is deferred until after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$DEFERRED_UNTIL")."
     exit 0
 fi
 
@@ -438,7 +446,7 @@ fi
 check_for_updates
 
 # Make a note of the time before displaying the prompt.
-PROMPT_START=$(date +%s)
+PROMPT_START=$(/bin/date +%s)
 
 # If defer time remains, display the prompt. If not, install and restart.
 if (( DEFER_TIME_LEFT > 0 )); then
@@ -457,19 +465,19 @@ if (( DEFER_TIME_LEFT > 0 )); then
     # Determine whether to include the "you may defer" wording.
     if (( EACH_DEFER > DEFER_TIME_LEFT )); then
         # Remove "{{" and "}}" including all the text between.
-        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/{{.*}}//g')"
+        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/{{.*}}//g')"
     else
         # Just remove "{{" and "}}" but leave the text between.
-        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | sed 's/[{{|}}]//g')"
+        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/[{{|}}]//g')"
     fi
 
     # Show the install/defer prompt.
     echo "Prompting to install updates now or defer..."
-    PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_OR_DEFER_HEADING" -description "$MSG_ACT_OR_DEFER" -button1 "Run Updates" -button2 "Defer" -defaultButton 2 -timeout 3600 -startlaunchd 2>/dev/null)
+    PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_OR_DEFER_HEADING" -description "$MSG_ACT_OR_DEFER" -button1 "Run Updates" -button2 "Defer" -defaultButton 2 -timeout 3600 -startlaunchd 2>"/dev/null")
     JAMFHELPER_PID=$!
 
     # Make a note of the amount of time the prompt was shown onscreen.
-    PROMPT_END=$(date +%s)
+    PROMPT_END=$(/bin/date +%s)
     PROMPT_ELAPSED_SEC=$(( PROMPT_END - PROMPT_START ))
 
     # Generate a duration string that will be used in log output.
@@ -489,41 +497,41 @@ if (( DEFER_TIME_LEFT > 0 )); then
     if [[ -n $PROMPT && $PROMPT_ELAPSED_SEC -eq 0 ]]; then
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "[ERROR] jamfHelper returned code $PROMPT $PROMPT_ELAPSED_STR. It's unlikely that the user responded that quickly."
+        echo "❌ ERROR: jamfHelper returned code $PROMPT $PROMPT_ELAPSED_STR. It's unlikely that the user responded that quickly."
         exit 1
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 0 ]]; then
         echo "User clicked Run Updates $PROMPT_ELAPSED_STR."
-        defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>/dev/null
+        /usr/bin/defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>"/dev/null"
         run_updates
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 1 ]]; then
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "[ERROR] jamfHelper was not able to launch $PROMPT_ELAPSED_STR."
+        echo "❌ ERROR: jamfHelper was not able to launch $PROMPT_ELAPSED_STR."
         exit 1
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 2 ]]; then
         echo "User clicked Defer $PROMPT_ELAPSED_STR."
-        NEXT_PROMPT=$(( $(date +%s) + EACH_DEFER ))
-        defaults write "$PLIST" AppleSoftwareUpdatesDeferredUntil -int "$NEXT_PROMPT"
-        echo "Next prompt will appear after $(date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
+        NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
+        /usr/bin/defaults write "$PLIST" AppleSoftwareUpdatesDeferredUntil -int "$NEXT_PROMPT"
+        echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 239 ]]; then
         echo "User deferred by exiting jamfHelper $PROMPT_ELAPSED_STR."
-        NEXT_PROMPT=$(( $(date +%s) + EACH_DEFER ))
-        defaults write "$PLIST" AppleSoftwareUpdatesDeferredUntil -int "$NEXT_PROMPT"
-        echo "Next prompt will appear after $(date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
+        NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
+        /usr/bin/defaults write "$PLIST" AppleSoftwareUpdatesDeferredUntil -int "$NEXT_PROMPT"
+        echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -gt 2 ]]; then
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "[ERROR] jamfHelper produced an unexpected value (code $PROMPT) $PROMPT_ELAPSED_STR."
+        echo "❌ ERROR: jamfHelper produced an unexpected value (code $PROMPT) $PROMPT_ELAPSED_STR."
         exit 1
     elif [[ -z $PROMPT ]]; then # $PROMPT is not defined
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "[ERROR] jamfHelper returned no value $PROMPT_ELAPSED_STR. Run Updates/Defer response was not captured. This may be because the user logged out without clicking Run Updates/Defer."
+        echo "❌ ERROR: jamfHelper returned no value $PROMPT_ELAPSED_STR. Run Updates/Defer response was not captured. This may be because the user logged out without clicking Run Updates/Defer."
         exit 1
     else
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "[ERROR] Something went wrong. Check the jamfHelper return code ($PROMPT) and prompt elapsed seconds ($PROMPT_ELAPSED_SEC) for further information."
+        echo "❌ ERROR: Something went wrong. Check the jamfHelper return code ($PROMPT) and prompt elapsed seconds ($PROMPT_ELAPSED_SEC) for further information."
         exit 1
     fi
 
