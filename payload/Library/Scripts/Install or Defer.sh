@@ -421,7 +421,7 @@ fi
 echo "Maximum deferral time: $(convert_seconds "$MAX_DEFERRAL_TIME")"
 
 # Perform first run tasks, including calculating deadline.
-FORCE_DATE=$(defaults read "$PLIST" AppleSoftwareUpdatesForcedAfter 2>"/dev/null")
+FORCE_DATE=$(/usr/bin/defaults read "$PLIST" AppleSoftwareUpdatesForcedAfter 2>"/dev/null")
 if [[ -z $FORCE_DATE || $FORCE_DATE -gt $(( $(/bin/date +%s) + MAX_DEFERRAL_TIME )) ]]; then
     FORCE_DATE=$(( $(/bin/date +%s) + MAX_DEFERRAL_TIME ))
     /usr/bin/defaults write "$PLIST" AppleSoftwareUpdatesForcedAfter -int $FORCE_DATE
@@ -433,7 +433,7 @@ echo "Deferral deadline: $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$FORCE_DATE"
 echo "Time remaining: $(convert_seconds $DEFER_TIME_LEFT)"
 
 # Get the "deferred until" timestamp, if one exists.
-DEFERRED_UNTIL=$(defaults read "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>"/dev/null")
+DEFERRED_UNTIL=$(/usr/bin/defaults read "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>"/dev/null")
 if [[ -n "$DEFERRED_UNTIL" ]] && (( DEFERRED_UNTIL > $(/bin/date +%s) && FORCE_DATE > DEFERRED_UNTIL )); then
     # If the policy ran recently and was deferred, we need to respect that
     # "defer until" timestamp, as long as it is earlier than the deferral
