@@ -388,7 +388,6 @@ if [[ "$BAILOUT" = "true" ]]; then
     else
         echo "Stopping due to errors."
     fi
-    echo "Stopping due to errors."
     exit 1
 else
     echo "Validation and error checking passed. Starting main process..."
