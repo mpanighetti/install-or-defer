@@ -1,13 +1,9 @@
 #!/bin/bash
 
 RESOURCE_FILES=(
-    "$3/Library/LaunchDaemons/com.elliotjordan.install_or_defer.plist"
     "$3/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist"
-    "$3/Library/Preferences/com.elliotjordan.install_or_defer.plist"
     "$3/Library/Preferences/com.github.mpanighetti.install-or-defer.plist"
-    "$3/Library/Scripts/install_or_defer.sh"
     "$3/Library/Scripts/Install or Defer.sh"
-    "$3/Library/Scripts/install_or_defer_helper.sh"
     "$3/Library/Scripts/Install or Defer_helper.sh"
     "$3/private/tmp/install-or-defer"
 )
@@ -15,11 +11,6 @@ RESOURCE_FILES=(
 # Kill jamfHelper process to close all current notifications.
 echo "Killing any active jamfHelper notifications..."
 /usr/bin/killall jamfHelper 2>"/dev/null"
-
-# Clear out legacy package receipt (if present).
-if [[ $(/usr/sbin/pkgutil --pkgs) == *"com.elliotjordan.install_or_defer"* ]]; then
-    /usr/sbin/pkgutil --forget "com.elliotjordan.install_or_defer"
-fi
 
 # Remove all script resources (if already present on the system).
 echo "Removing existing script resources..."

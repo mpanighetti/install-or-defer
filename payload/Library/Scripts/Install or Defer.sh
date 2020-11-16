@@ -12,8 +12,8 @@
 #                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2020-07-06
-#         Version:  3.0.2
+#   Last Modified:  2020-11-16
+#         Version:  3.0.3
 #
 ###
 
@@ -44,31 +44,25 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 #     remaining in the deferral period.
 #   - The section in the {{double curly brackets}} will be removed when this
 #     message is displayed for the final time before the deferral deadline.
-#   - The sections in the <<double comparison operators>> will be removed if a restart
-#     is not required for the pending updates.
-#   - %UPDATE_MECHANISM% will be automatically replaced depending on macOS
-#     version:
-#     - macOS 10.13 or lower: "App Store - Updates"
-#     - macOS 10.14+: "System Preferences - Software Update"
+#   - The sections in the <<double comparison operators>> will be removed if a
+#     restart is not required for the pending updates.
 
 # The message users will receive when updates are available, shown above the
 # "Run Updates" and "Defer" buttons.
 MSG_ACT_OR_DEFER_HEADING="Critical updates are available"
-MSG_ACT_OR_DEFER="Apple has released critical security updates, and your IT department would like you to install them as soon as possible. Please save your work, quit all applications, and click Run Updates.
+MSG_ACT_OR_DEFER="Your Mac needs to run critical security updates<< which require a restart>>. Please save your work, quit all applications, and click Run Updates.
 
-{{If now is not a good time, you may defer this message until later. }}Updates will install automatically after %DEFER_HOURS% hours<<, forcing your Mac to restart in the process>>. Note: This may result in losing unsaved work.
+{{If now is not a good time, you may defer this message until later. }}Updates will install automatically after %DEFER_HOURS% hours<<, forcing your Mac to restart in the process>>.
 
-If you'd like to manually install the updates yourself, open %UPDATE_MECHANISM% and apply all system and security updates<<, then restart when prompted>>.
-
-If you have any questions, please call or email the IT help desk."
+If you have any questions, please contact IT."
 
 # The message users will receive after the deferral deadline has been reached.
 MSG_ACT_HEADING="Please run updates now"
-MSG_ACT="Please save your work, then open %UPDATE_MECHANISM% and apply all system and security updates<<, then restart when prompted>>. If no action is taken, updates will be installed automatically<<, and your Mac will restart>>."
+MSG_ACT="Please save your work, then run all available macOS security updates<< (restart your Mac when prompted)>>. If no action is taken, updates will be installed automatically."
 
 # The message users will receive while updates are running in the background.
 MSG_UPDATING_HEADING="Running updates"
-MSG_UPDATING="Running system updates in the background.<< Your Mac will restart automatically when this is finished.>> You can force this to complete sooner by opening %UPDATE_MECHANISM% and applying all system and security updates."
+MSG_UPDATING="Running macOS security updates in the background.<< Your Mac will restart automatically when this is finished.>>"
 
 
 #################################### TIMING ###################################
@@ -303,7 +297,7 @@ exit_without_updating () {
 
 # Copy all output to the system log for diagnostic purposes.
 exec 1> >(/usr/bin/logger -s -t "$(/usr/bin/basename "$0")") 2>&1
-echo "Starting $(/usr/bin/basename "$0") script. Performing validation and error checking..."
+echo "Starting $(/usr/bin/basename "$0"). Performing validation and error checking..."
 
 # Define custom $PATH.
 PATH="/usr/sbin:/usr/bin:/usr/local/bin:$PATH"
@@ -333,32 +327,20 @@ fi
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $2}')
 
-# If the macOS version is not 10.13 through 10.15, this script may not work.
+# This script has currently been tested in macOS 10.13+ and macOS 11,
+# and will exit with error for any other macOS versions.
 # When new versions of macOS are released, this logic should be updated after
 # the script has been tested successfully.
-if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 13 ]] || [[ "$OS_MAJOR" -lt 10 ]]; then
-    echo "❌ ERROR: This script requires at least macOS 10.13. This Mac has $OS_MAJOR.$OS_MINOR."
+if [[ "$OS_MAJOR" -lt 10 ]] || [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 13 ]] || [[ "$OS_MAJOR" -gt 11 ]]; then
+    echo "❌ ERROR: This script supports macOS 10.13+ and macOS 11, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
     BAILOUT=true
-elif [[ "$OS_MAJOR" -gt 10 ]] || [[ "$OS_MINOR" -gt 15 ]]; then
-    echo "❌ ERROR: This script has been tested through macOS 10.15 only. This Mac has $OS_MAJOR.$OS_MINOR."
-    BAILOUT=true
-else
-    if [[ "$OS_MINOR" -lt 14 ]]; then
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/App Store - Updates}"
-        MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/App Store - Updates}"
-        MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/App Store - Updates}"
-    else
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%UPDATE_MECHANISM%/System Preferences - Software Update}"
-        MSG_ACT="${MSG_ACT//%UPDATE_MECHANISM%/System Preferences - Software Update}"
-        MSG_UPDATING="${MSG_UPDATING//%UPDATE_MECHANISM%/System Preferences - Software Update}"
-    fi
 fi
 
 # We need to be connected to the internet in order to download updates.
 if /sbin/ping -q -c 1 208.67.222.222; then
     # Check if a custom CatalogURL is set and if it is available
     # (deprecated in macOS 11+).
-    if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 16 ]]; then
+    if [[ "$OS_MAJOR" -lt 11 ]]; then
         SU_CATALOG=$(/usr/bin/defaults read "/Library/Managed Preferences/com.apple.SoftwareUpdate" CatalogURL 2>"/dev/null")
         if [[ "$SU_CATALOG" != "None" ]]; then
             if /usr/bin/curl --user-agent "Darwin/$(/usr/bin/uname -r)" -s --head "$SU_CATALOG" | /usr/bin/grep "200 OK" >"/dev/null"; then
@@ -421,10 +403,10 @@ fi
 echo "Maximum deferral time: $(convert_seconds "$MAX_DEFERRAL_TIME")"
 
 # Perform first run tasks, including calculating deadline.
-FORCE_DATE=$(/usr/bin/defaults read "$PLIST" AppleSoftwareUpdatesForcedAfter 2>"/dev/null")
+FORCE_DATE=$(/usr/bin/defaults read "$PLIST" UpdatesForcedAfter 2>"/dev/null")
 if [[ -z $FORCE_DATE || $FORCE_DATE -gt $(( $(/bin/date +%s) + MAX_DEFERRAL_TIME )) ]]; then
     FORCE_DATE=$(( $(/bin/date +%s) + MAX_DEFERRAL_TIME ))
-    /usr/bin/defaults write "$PLIST" AppleSoftwareUpdatesForcedAfter -int $FORCE_DATE
+    /usr/bin/defaults write "$PLIST" UpdatesForcedAfter -int $FORCE_DATE
 fi
 
 # Calculate how much time remains until deferral deadline.
@@ -433,7 +415,7 @@ echo "Deferral deadline: $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$FORCE_DATE"
 echo "Time remaining: $(convert_seconds $DEFER_TIME_LEFT)"
 
 # Get the "deferred until" timestamp, if one exists.
-DEFERRED_UNTIL=$(/usr/bin/defaults read "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>"/dev/null")
+DEFERRED_UNTIL=$(/usr/bin/defaults read "$PLIST" UpdatesDeferredUntil 2>"/dev/null")
 if [[ -n "$DEFERRED_UNTIL" ]] && (( DEFERRED_UNTIL > $(/bin/date +%s) && FORCE_DATE > DEFERRED_UNTIL )); then
     # If the policy ran recently and was deferred, we need to respect that
     # "defer until" timestamp, as long as it is earlier than the deferral
@@ -501,7 +483,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
         exit 1
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 0 ]]; then
         echo "User clicked Run Updates $PROMPT_ELAPSED_STR."
-        /usr/bin/defaults delete "$PLIST" AppleSoftwareUpdatesDeferredUntil 2>"/dev/null"
+        /usr/bin/defaults delete "$PLIST" UpdatesDeferredUntil 2>"/dev/null"
         run_updates
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 1 ]]; then
         # Kill the jamfHelper prompt.
@@ -511,12 +493,12 @@ if (( DEFER_TIME_LEFT > 0 )); then
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 2 ]]; then
         echo "User clicked Defer $PROMPT_ELAPSED_STR."
         NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
-        /usr/bin/defaults write "$PLIST" AppleSoftwareUpdatesDeferredUntil -int "$NEXT_PROMPT"
+        /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
         echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 239 ]]; then
         echo "User deferred by exiting jamfHelper $PROMPT_ELAPSED_STR."
         NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
-        /usr/bin/defaults write "$PLIST" AppleSoftwareUpdatesDeferredUntil -int "$NEXT_PROMPT"
+        /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
         echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -gt 2 ]]; then
         # Kill the jamfHelper prompt.
