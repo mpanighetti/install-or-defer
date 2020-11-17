@@ -12,7 +12,7 @@
 #                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2020-11-16
+#   Last Modified:  2020-11-17
 #         Version:  3.0.3
 #
 ###
@@ -333,6 +333,18 @@ OS_MINOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $2}')
 # the script has been tested successfully.
 if [[ "$OS_MAJOR" -lt 10 ]] || [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 13 ]] || [[ "$OS_MAJOR" -gt 11 ]]; then
     echo "❌ ERROR: This script supports macOS 10.13+ and macOS 11, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
+    BAILOUT=true
+fi
+
+# Determine platform architecture.
+PLATFORM_ARCH=$(/usr/bin/arch)
+
+# This script has currently been tested on Intel Macs, and will exit with error
+# when run on Apple Silicon Macs.
+# This logic should be updated after the script has been tested and updated for
+# Apple Silicon Mac compatibility.
+if [[ "$PLATFORM_ARCH" = "arm64" ]]; then
+    echo "❌ ERROR: This script has not been tested on Apple Silicon Macs, unable to proceed."
     BAILOUT=true
 fi
 
