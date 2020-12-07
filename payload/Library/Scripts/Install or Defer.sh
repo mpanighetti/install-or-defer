@@ -12,8 +12,8 @@
 #                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2020-11-17
-#         Version:  3.0.3
+#   Last Modified:  2020-12-07
+#         Version:  4.0
 #
 ###
 
@@ -114,6 +114,7 @@ check_for_updates () {
     # a restart. If no updates need to be installed, bail out.
     if [[ "$UPDATE_CHECK" =~ (Action: restart|\[restart\]) ]]; then
         INSTALL_WHICH="all"
+        RESTART_FLAG="--restart"
         # Remove "<<" and ">>" but leave the text between
         # (retains restart warnings).
         MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
@@ -121,6 +122,7 @@ check_for_updates () {
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
     elif [[ "$UPDATE_CHECK" =~ (Recommended: YES|\[recommended\]) ]]; then
         INSTALL_WHICH="recommended"
+        RESTART_FLAG=""
         # Remove "<<" and ">>" including all the text between
         # (removes restart warnings).
         MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/\<\<.*\>\>//g')"
@@ -193,7 +195,12 @@ run_updates () {
 
     # Run Apple system updates.
     echo "Running $INSTALL_WHICH Apple system updates..."
-    UPDATE_OUTPUT_CAPTURE="$(/usr/sbin/softwareupdate --install --$INSTALL_WHICH --no-scan 2>&1)"
+    # macOS Big Sur requires triggering the restart as part of the softwareupdate action, meaning the script will not be able to run its clean_up functions until the next time it is run.
+    if [[ "$OS_MAJOR" -gt 10 ]] && [[ "$INSTALL_WHICH" = "all" ]]; then
+      echo "System will restart as soon as the update is finished. Cleanup tasks will run on a subsequent update check."
+    fi
+    # shellcheck disable=SC2086
+    UPDATE_OUTPUT_CAPTURE="$(/usr/sbin/softwareupdate --install --${INSTALL_WHICH} ${RESTART_FLAG} --no-scan 2>&1)"
     echo "Finished running Apple updates."
 
     # Trigger restart if script found an update which requires it.
