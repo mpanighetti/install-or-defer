@@ -14,7 +14,7 @@ This framework is distributed in the form of a [munkipkg](https://github.com/mun
 Here's what needs to be in place in order to use this framework:
 
 - The current version of this framework has been tested on __macOS High Sierra, Mojave, Catalina, and Big Sur__, but older versions should continue to function normally for previous macOS builds (note, however, that those versions of macOS are no longer receiving regular security updates from Apple and thus may not benefit from this framework).
-- This framework has only been tested on __Intel Macs__, and currently exits with no update enforcement action if run on Apple Silicon Macs. `softwareupdate` binary behavior has changed on Apple Silicon and further testing on native hardware is required before we can update the script for compatibility. Stay tuned! #45
+- This framework has only been tested on __Intel Macs__, and currently exits with no update enforcement action if run on Apple Silicon Macs. `softwareupdate` binary behavior has changed on Apple Silicon and further testing on native hardware is required before we can update the script for compatibility. Stay tuned! [#45](https://github.com/mpanighetti/install-or-defer/issues/45)
 - Target Macs must be __enrolled in Jamf Pro__ and have the `jamfHelper` binary installed.
 
 ## Optional
