@@ -4,7 +4,7 @@ This framework will enforce the installation of pending Apple security updates o
 
 ![Install or Defer prompt](img/install-or-defer-fullscreen.png)
 
-This workflow is most useful for updates that require a restart and include important security-related patches (e.g. macOS Catalina 10.15.2), but also applies to critical security updates that don't require a restart (e.g. Safari 13.0.4). Basically, anything with the `Recommended: YES` and/or `Action: restart` label in the `softwareupdate` catalog is in scope.
+This workflow is most useful for updates that require a restart and include important security-related patches (e.g. macOS Catalina 10.15.7 Supplemental), but also applies to critical security updates that don't require a restart (e.g. Safari 14.0.1). Basically, anything Software Update marks as "recommended" or requiring a restart is in scope.
 
 This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer package when changes are made to the script or to the LaunchDaemon that runs it (despite the name, packages generated with munkipkg don't require Munki; they work great with Jamf Pro). See the [Installer creation](#installer-creation) section below for specific steps on creating the installer for this framework.
 
@@ -13,7 +13,8 @@ This framework is distributed in the form of a [munkipkg](https://github.com/mun
 
 Here's what needs to be in place in order to use this framework:
 
-- The current version of this framework has been tested only on __macOS 10.13 through 10.15__, but older versions should continue to function normally for previous macOS builds (note, however, that those versions of macOS are no longer receiving regular security updates from Apple and thus may not benefit from this framework).
+- The current version of this framework has been tested on __macOS High Sierra, Mojave, Catalina, and Big Sur__, but older versions should continue to function normally for previous macOS builds (note, however, that those versions of macOS are no longer receiving regular security updates from Apple and thus may not benefit from this framework).
+- This framework has only been tested on __Intel Macs__, and currently exits with no update enforcement action if run on Apple Silicon Macs. `softwareupdate` binary behavior has changed on Apple Silicon and further testing on native hardware is required before we can update the script for compatibility. Stay tuned! [#45](https://github.com/mpanighetti/install-or-defer/issues/45)
 - Target Macs must be __enrolled in Jamf Pro__ and have the `jamfHelper` binary installed.
 
 ## Optional
@@ -132,7 +133,6 @@ There are several settings in the script that can be customized by changing defa
 The above messages use the following dynamic substitutions:
 
 - `%DEFER_HOURS%` will be automatically replaced by the number of hours remaining in the deferral period.
-- `%UPDATE_MECHANISM%` will be automatically replaced by either "App Store > Updates" or "System Preferences > Software Update" depending on the version of macOS.
 - The section in the `<<double comparison operators>>` will be removed if a restart is not required.
 - The section in the `{{double curly brackets}}` will be removed when this message is displayed for the final time before the deferral deadline.
 
@@ -157,8 +157,8 @@ Download and install [munkipkg](https://github.com/munki/munki-pkg), if you have
 
 If you make changes to the script, we recommend changing the following three things:
 
-- The Last Modified metadata in the script.
-- The Version metadata in the script.
+- The __Last Modified__ metadata in the script.
+- The __Version__ metadata in the script.
 - The `version` key in the build-info.plist file (to match the script version).
 
 With munkipkg installed, this command will generate a new installer package in the build folder:
@@ -266,13 +266,13 @@ Create a policy with the following criteria:
 
     You should see something similar to the following output (the numbers, which represent dates, will vary):
         ```
-        AppleSoftwareUpdatesDeferredUntil = 1585884274;
-        AppleSoftwareUpdatesForcedAfter = 1586042469;
+        UpdatesDeferredUntil = 1585884274;
+        UpdatesForcedAfter = 1586042469;
         ```
 
 9. Enter the following commands to "skip ahead" to the next deferral and re-trigger the prompt:
     ```
-    sudo defaults write /Library/Preferences/com.github.mpanighetti.install-or-defer AppleSoftwareUpdatesDeferredUntil -int $(date +%s)
+    sudo defaults write /Library/Preferences/com.github.mpanighetti.install-or-defer UpdatesDeferredUntil -int $(date +%s)
     sudo launchctl unload /Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist
     sudo launchctl load /Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist
     ```
@@ -289,7 +289,7 @@ Create a policy with the following criteria:
 
 Once the Testing steps above have been followed, there are only a few steps remaining to deploy the framework:
 
-1. On the Jamf Pro web app, edit the __Install or Defer__ policy and click on the __Scope__ tab.
+1. In the Jamf Pro web app, edit the __Install or Defer__ policy and click on the __Scope__ tab.
 2. Remove the test Macs from the scope.
 3. Add all the __Critical Update Needed__ smart groups into the scope.
 4. Click __Save__.
@@ -319,10 +319,10 @@ sudo chmod 644 /path/to/install-or-defer/payload/Library/LaunchDaemons/com.githu
 
 ## Miscellaneous Notes
 
-- Feel free to change the `com.github.mpanighetti` style identifier to match your company instead. If you do this, make sure to update the filenames of the LaunchDaemons, their corresponding file paths in the preinstall and postinstall scripts, and the `$BUNDLE_ID` variable in the script.
+- Feel free to change the `com.github.mpanighetti` bundle identifier to match your company instead. If you do this, make sure to update the filenames of the LaunchDaemons, their corresponding file paths in the preinstall and postinstall scripts, and the `$BUNDLE_ID` variable in the script.
 - You can specify a different default logo if you'd rather not use the Software Update icon (e.g. corporate branding). `jamfHelper` supports .icns and .png files.
 - If you encounter any issues or have questions, please open an issue on this GitHub repo.
 
 Enjoy!
 
-<a name="footnote1"><sup>1</sup></a> This example frequency assumes you're using the default deferral period of 72 hours. If you've set a custom deferral period, it is recommended that your policy runs less frequently than the maximum deferral time, so that your Macs have the chance to defer, timeout, and apply the updates before the policy attempts to run again (since the preinstall script will reset `AppleSoftwareUpdatesDeferredUntil` and `AppleSoftwareUpdatesForcedAfter`).
+<a name="footnote1"><sup>1</sup></a> This example frequency assumes you're using the default deferral period of 72 hours. If you've set a custom deferral period, it is recommended that your policy runs less frequently than the maximum deferral time, so that your Macs have the chance to defer, timeout, and apply the updates before the policy attempts to run again (since the preinstall script will reset `UpdatesDeferredUntil` and `UpdatesForcedAfter`).
