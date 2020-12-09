@@ -1,30 +1,36 @@
-#!/bin/bash
+#!/bin/sh
 
-RESOURCE_FILES=(
-    "$3/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist"
-    "$3/Library/Preferences/com.github.mpanighetti.install-or-defer.plist"
-    "$3/Library/Scripts/Install or Defer.sh"
-    "$3/Library/Scripts/Install or Defer_helper.sh"
-    "$3/private/tmp/install-or-defer"
-)
 
-# Kill jamfHelper process to close all current notifications.
-echo "Killing any active jamfHelper notifications..."
-/usr/bin/killall jamfHelper 2>"/dev/null"
+################################## FUNCTIONS ##################################
 
-# Remove all script resources (if already present on the system).
-echo "Removing existing script resources..."
-for TARGET_FILE in "${RESOURCE_FILES[@]}"; do
-    if [[ -e "$TARGET_FILE" ]]; then
-        # If plist is loaded as a LaunchDaemon, unload it.
-        if [[ "$TARGET_FILE" == *".plist" ]]; then
-            PLIST_LABEL=$(/usr/bin/basename "$TARGET_FILE" | /usr/bin/awk -F.plist '{print $1}')
-            if [[ $(/bin/launchctl list) == *"$PLIST_LABEL"* ]]; then
+# Removes specified file (if present).
+remove_resource () {
+    if [ -e "$1" ]; then
+        if  echo "$1" | /usr/bin/grep -q ".plist"; then
+            PLIST_LABEL=$(/usr/bin/basename "$1" | /usr/bin/awk -F.plist '{print $1}')
+            # If plist is loaded as a LaunchDaemon,
+            # remove the launchd task before file deletion.
+            if /bin/launchctl list | /usr/bin/grep -q "$PLIST_LABEL"; then
                 /bin/launchctl remove "$PLIST_LABEL"
                 echo "Removed LaunchDaemon: $PLIST_LABEL"
             fi
         fi
-        /bin/rm -rf "$TARGET_FILE"
-        echo "Deleted file: $TARGET_FILE"
+        /bin/rm -rf "$1"
+        echo "Deleted file: $1"
     fi
-done
+}
+
+
+################################ MAIN PROCESS #################################
+
+# Kill jamfHelper process to close any current notifications.
+echo "Killing any active jamfHelper notifications..."
+/usr/bin/killall jamfHelper 2>"/dev/null"
+
+# Remove all script resources (if present).
+echo "Removing existing script resources..."
+remove_resource "$3/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist"
+remove_resource "$3/Library/Preferences/com.github.mpanighetti.install-or-defer.plist"
+remove_resource "$3/Library/Scripts/Install or Defer.sh"
+remove_resource "$3/Library/Scripts/Install or Defer_helper.sh"
+remove_resource "$3/private/tmp/install-or-defer"
