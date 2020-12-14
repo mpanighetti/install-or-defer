@@ -12,8 +12,8 @@
 #                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2020-12-08
-#         Version:  4.0.1
+#   Last Modified:  2020-12-14
+#         Version:  4.0.2
 #
 ###
 
@@ -400,8 +400,15 @@ fi
 # Validate logo file. If no logo is provided or if the file cannot be found at
 # specified path, default to the Software Update icon.
 if [[ -z "$LOGO" ]] || [[ ! -f "$LOGO" ]]; then
-    echo "No logo provided, or no logo exists at specified path. Using Software Update icon."
-    LOGO="/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
+    echo "No logo provided, or no image file exists at specified path. Using Software Update icon."
+    # macOS High Sierra is the only supported macOS that does not have a
+    # Software Update preference pane, so we'll use the Software Update.app
+    # icon instead.
+    if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -eq 13 ]]; then
+      LOGO="/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
+    else
+      LOGO="/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns"
+    fi
 fi
 
 # Validate max deferral time and whether to skip deferral. To customize these
