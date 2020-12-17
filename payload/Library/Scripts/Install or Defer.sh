@@ -12,8 +12,8 @@
 #                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2020-12-14
-#         Version:  4.0.2
+#   Last Modified:  2020-12-17
+#         Version:  4.0.3
 #
 ###
 
@@ -50,19 +50,25 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 # The message users will receive when updates are available, shown above the
 # "Run Updates" and "Defer" buttons.
 MSG_ACT_OR_DEFER_HEADING="Critical updates are available"
-MSG_ACT_OR_DEFER="Your Mac needs to run critical security updates<< which require a restart>>. Please save your work, quit all applications, and click Run Updates.
+MSG_ACT_OR_DEFER="Your Mac needs to run critical security updates<< which require a restart>>:
 
-{{If now is not a good time, you may defer this message until later. }}Updates will install automatically after %DEFER_HOURS% hours<<, forcing your Mac to restart in the process>>.
+UPDATE_LIST
+
+Please save your work, quit all applications, and click Run Updates. {{If now is not a good time, you may defer this message until later. }}Updates will install automatically after %DEFER_HOURS% hours<<, forcing your Mac to restart in the process>>.
 
 If you have any questions, please contact IT."
 
 # The message users will receive after the deferral deadline has been reached.
 MSG_ACT_HEADING="Please run updates now"
-MSG_ACT="Please save your work, then run all available macOS security updates<< (restart your Mac when prompted)>>. If no action is taken, updates will be installed automatically."
+MSG_ACT="Please save your work, then run all available macOS security updates<< (restart your Mac when prompted)>>. If no action is taken, these updates will be installed automatically:
+
+UPDATE_LIST"
 
 # The message users will receive while updates are running in the background.
 MSG_UPDATING_HEADING="Running updates"
-MSG_UPDATING="Running macOS security updates in the background.<< Your Mac will restart automatically when this is finished.>>"
+MSG_UPDATING="Running the following macOS updates in the background<< (your Mac will restart automatically when this is finished)>>:
+
+UPDATE_LIST"
 
 
 #################################### TIMING ###################################
@@ -110,8 +116,8 @@ check_for_updates () {
     echo "Checking for pending system updates..."
     UPDATE_CHECK=$(/usr/sbin/softwareupdate --list 2>&1)
 
-    # Determine whether any critical updates are available, and if any require
-    # a restart. If no updates need to be installed, bail out.
+    # Determine whether any critical updates are available.
+    # If a restart is required, run all available updates.
     if [[ "$UPDATE_CHECK" =~ (Action: restart|\[restart\]) ]]; then
         INSTALL_WHICH="all"
         RESTART_FLAG="--restart"
@@ -120,6 +126,7 @@ check_for_updates () {
         MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
+    # Otherwise, only target recommended updates.
     elif [[ "$UPDATE_CHECK" =~ (Recommended: YES|\[recommended\]) ]]; then
         INSTALL_WHICH="recommended"
         RESTART_FLAG=""
@@ -128,10 +135,24 @@ check_for_updates () {
         MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/\<\<.*\>\>//g')"
+    # If no updates need to be installed, bail out.
     else
         echo "No critical updates available."
         exit_without_updating
     fi
+
+    # Capture update names and versions.
+    if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 15 ]]; then
+      UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[\(\)]' '/recommended/ {print $1 $2}')"
+    else
+      UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2 $4}')"
+    fi
+    # Convert update list from multiline to comma-separated list.
+    UPDATE_LIST="$(echo "$UPDATE_LIST" | /usr/bin/tr '\n' ',' | /usr/bin/sed 's/^ *//; s/,/, /g; s/, $//')"
+    # Populate the list of pending updates in message text.
+    MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed "s/UPDATE_LIST/$UPDATE_LIST/")"
+    MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed "s/UPDATE_LIST/$UPDATE_LIST/")"
+    MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/UPDATE_LIST/$UPDATE_LIST/")"
 
     # Download updates (all updates if a restart is required for any, otherwise
     # just recommended updates).
