@@ -356,7 +356,7 @@ if [[ "$PLATFORM_ARCH" = "arm64" ]]; then
 fi
 
 # We need to be connected to the internet in order to download updates.
-if /sbin/ping -q -c 1 208.67.222.222; then
+if nc -zw1 swscan.apple.com 443; then
     # Check if a custom CatalogURL is set and if it is available
     # (deprecated in macOS 11+).
     if [[ "$OS_MAJOR" -lt 11 ]]; then
