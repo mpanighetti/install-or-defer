@@ -355,7 +355,7 @@ else
 fi
 
 # We need to be connected to the internet in order to download updates.
-if nc -zw1 google.com 443; then
+if nc -zw1 swscan.apple.com 443; then
     # Check if a custom CatalogURL is set and if it is available
     # (deprecated in macOS 11+).
     if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 16 ]]; then
