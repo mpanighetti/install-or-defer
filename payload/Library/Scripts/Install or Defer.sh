@@ -12,8 +12,8 @@
 #                   in that update check, the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2021-03-08
-#         Version:  4.0.3
+#   Last Modified:  2021-03-09
+#         Version:  4.1
 #
 ###
 
