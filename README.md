@@ -1,10 +1,10 @@
 # Install or Defer
 
-This framework will enforce the installation of pending Apple security updates on Jamf Pro-managed Macs. Users will have the option to __Run Updates__ or __Defer__. After a specified amount of time passes, the Mac will be forced to install the updates, then restart automatically if any updates require it.
+This framework will enforce the installation of pending Apple security updates on Jamf Pro-managed Macs. Users will have the option to __Run Updates__ or __Defer__. After a specified amount of time passes, the Mac will be prompted to install the updates, then restart automatically if any updates require it.
 
 ![Install or Defer prompt](img/install-or-defer-fullscreen.png)
 
-This workflow is most useful for updates that require a restart and include important security-related patches (e.g. macOS Catalina 10.15.7 Supplemental), but also applies to critical security updates that don't require a restart (e.g. Safari 14.0.1). Basically, anything Software Update marks as "recommended" or requiring a restart is in scope.
+This workflow is most useful for updates that require a restart and include important security-related patches (e.g. macOS Catalina 10.15.7 Supplemental), but also applies to security updates that don't require a restart (e.g. Safari 14.0.3). Basically, anything Software Update marks as "recommended" or requiring a restart is in scope.
 
 This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer package when changes are made to the script or to the LaunchDaemon that runs it (despite the name, packages generated with munkipkg don't require Munki; they work great with Jamf Pro). See the [Installer creation](#installer-creation) section below for specific steps on creating the installer for this framework.
 
@@ -14,7 +14,6 @@ This framework is distributed in the form of a [munkipkg](https://github.com/mun
 Here's what needs to be in place in order to use this framework:
 
 - The current version of this framework has been tested on __macOS High Sierra, Mojave, Catalina, and Big Sur__, but older versions should continue to function normally for previous macOS builds (note, however, that those versions of macOS are no longer receiving regular security updates from Apple and thus may not benefit from this framework).
-- This framework has only been tested on __Intel Macs__, and currently exits with no update enforcement action if run on Apple Silicon Macs. `softwareupdate` binary behavior has changed on Apple Silicon and further testing on native hardware is required before we can update the script for compatibility. Stay tuned! [#45](https://github.com/mpanighetti/install-or-defer/issues/45)
 - Target Macs must be __enrolled in Jamf Pro__ and have the `jamfHelper` binary installed.
 
 ## Optional
@@ -36,7 +35,7 @@ The following is assumed to be the case when implementing this framework:
 
 Here's how everything works, once it's configured:
 
-1. When a new critical Apple security update is released, the Jamf Pro administrator creates a smart group for Macs that need this update, and adds it to the existing policy scope.
+1. When a new desired Apple security update is released, the Jamf Pro administrator creates a smart group for Macs that need this update, and adds it to the existing policy scope.
 2. Macs that meet the smart group criteria run the policy at next check-in.
 3. The policy installs a package that places a LaunchDaemon and a script.
 4. The LaunchDaemon executes the script, which performs the following actions:
@@ -60,10 +59,11 @@ Here's how everything works, once it's configured:
 
 ## Limitations
 
-The framework has two major limitations:
+The framework has three major limitations:
 
-- Sequential updates cannot be installed as a group (e.g. Security Update 2019-002 Mojave cannot be installed unless 10.14.6 is already installed). If multiple sequential critical updates are available, they are treated as two separate rounds of prompting/deferring. As a result, Macs requiring sequential updates may take more than one deferral/enforcement cycle (default 3 days) to be fully patched.
+- Sequential updates cannot be installed as a group (e.g. Security Update 2019-002 Mojave cannot be installed unless 10.14.6 is already installed). If multiple sequential security updates are available, they are treated as two separate rounds of prompting/deferring. As a result, Macs requiring sequential updates may take more than one deferral and enforcement cycle (default 3 days) to be fully patched.
 - Reasonable attempts have been made to make this workflow enforceable, but there's nothing stopping an administrator of a Mac from unloading the LaunchDaemon or resetting the preference file.
+- On Apple Silicon Macs, running `softwareupdate --download` and `softwareupdate --install` via script are unsupported. When this framework is run on arm64 architecture, enforcement takes a "softer" form, instead opening System Preferences - Software Update and leaving a persistent prompt in place until the updates are applied.
 
 
 ## Settings customization
@@ -184,18 +184,22 @@ Upload this package (created with munkipkg above) to the Jamf Pro server via Jam
 
 Create a smart group for each software update or operating system patch you wish to enforce. Here are some examples to serve as guides, using regular expressions to allow for fewer criteria:
 
-- __Critical Update Needed: macOS Catalina 10.15.2__
-    - `Operating System Build` `matches regex` `^19[A-B]`
-- __Critical Update Needed: Security Update 2019-007 High Sierra__
-    - `Operating System Build` `matches regex` `^17G\d{1,4}$`
+- __Critical Update Needed: macOS Catalina 10.15.7__
+    - `Operating System Build` `matches regex` `^19[A-G]`
+- __Critical Update Needed: Security Update 2021-002 Mojave__
+    - `Operating System Build` `matches regex` `^18G\d{1,3}$`
+    - `or` `Operating System Build` `matches regex` `^18G[1-7]\d{3}$`
+    - `or` `Operating System Build` `matches regex` `^18G80[0-1]\d$`
+    - `or` `Operating System Build` `matches regex` `^18G802[0-1]$`
 
 For completion's sake, here's an example of an update that won't require a restart but is still tagged as `Recommended: YES` in the `softwareupdate` catalog:
 
-- __Critical Update Needed: Safari 13.0.4__
+- __Critical Update Needed: Safari 14.0.3__
     - `Application Title` `is` `Safari.app`
     - `and` `(` `Application Version` `matches regex` `^\d\.`
-    - `or` `Application Version` `matches regex` `^1[0-2]\.`
-    - `or` `Application Version` `matches regex` `^13\.0\.[0-3]` `)`
+    - `or` `Application Version` `matches regex` `^1[0-3]\.`
+    - `or` `Application Version` `matches regex` `^14\.0$`
+    - `or` `Application Version` `matches regex` `^14\.0\.[0-2]` `)`
 
 
 ### Policy
@@ -298,7 +302,7 @@ Once the Testing steps above have been followed, there are only a few steps rema
 
 ## Rollback
 
-If major problems are detected with the critical update prompt or installation workflow, disable the __Install or Defer__ policy. This will prevent computers from being newly prompted for installation of updates.
+If major problems are detected with the update prompt or installation workflow, disable the __Install or Defer__ policy. This will prevent computers from being newly prompted for installation of updates.
 
 Note that any computers which have already received the framework push will continue through the motions of alerting, deferring, updating, and restarting. If you need to remove the framework from your fleet and stop it from running, you could write an uninstall script using the preinstall script as a foundation (it would basically just need to unload the LaunchDaemons and remove the resource files).
 

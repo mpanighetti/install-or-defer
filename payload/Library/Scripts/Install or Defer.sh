@@ -7,9 +7,9 @@
 #                   LaunchDaemon, will prompt users to install Apple system
 #                   updates that the IT department has deemed "critical." Users
 #                   will have the option to Run Updates or Defer. After a
-#                   specified amount of time, the update will be forced. If
-#                   updates requiring a restart were found in the update check,
-#                   the system restarts automatically.
+#                   specified amount of time, the update will be forced on
+#                   Intel Macs, and if updates requiring a restart were found
+#                   in that update check, the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
 #   Last Modified:  2021-03-08
@@ -54,7 +54,7 @@ MSG_ACT_OR_DEFER="Your Mac needs to run the following updates<< which require a 
 
 UPDATE_LIST
 
-Please save your work, quit all applications, and click Run Updates. {{If now is not a good time, you may defer this message until later. }}Updates will install automatically after %DEFER_HOURS% hours<<, forcing your Mac to restart in the process>>.
+Please save your work, quit all applications, and click Run Updates. {{If now is not a good time, you may defer this message until later. }}These updates will be required after %DEFER_HOURS% hours<<, forcing your Mac to restart after they run>>.
 
 Please contact IT for any questions."
 
@@ -64,7 +64,14 @@ MSG_ACT="Your Mac is about to run the following updates<< and restart>>:
 
 UPDATE_LIST
 
-Please save your work and quit any of the above applications. You can manually run macOS updates in System Preferences > Softare Update."
+Please save your work and quit any of the above applications. You can manually run these updates in System Preferences - Software Update."
+
+# The message users will receive when a manual update action is required.
+MSG_ACT_NOW="Your Mac needs to run the following updates<< which require a restart>>:
+
+UPDATE_LIST
+
+Please save your work, quit all other applications, then open System Preferences - Software Update and run all available updates.<< Your Mac will restart when updates are finished running.>>"
 
 # The message users will receive while updates are running in the background.
 MSG_UPDATING_HEADING="Running updates"
@@ -128,6 +135,7 @@ check_for_updates () {
         # (retains restart warnings).
         MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
+        MSG_ACT_NOW="$(echo "$MSG_ACT_NOW" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
     # Otherwise, only target recommended updates.
     elif [[ "$UPDATE_CHECK" =~ (Recommended: YES|\[recommended\]) ]]; then
@@ -137,6 +145,7 @@ check_for_updates () {
         # (removes restart warnings).
         MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed 's/\<\<.*\>\>//g')"
+        MSG_ACT_NOW="$(echo "$MSG_ACT_NOW" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/\<\<.*\>\>//g')"
     # If no recommended updates need to be installed, bail out.
     else
@@ -155,12 +164,15 @@ check_for_updates () {
     # Populate the list of pending updates in message text.
     MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed "s/UPDATE_LIST/$UPDATE_LIST/")"
     MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed "s/UPDATE_LIST/$UPDATE_LIST/")"
+    MSG_ACT_NOW="$(echo "$MSG_ACT_NOW" | /usr/bin/sed "s/UPDATE_LIST/$UPDATE_LIST/")"
     MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/UPDATE_LIST/$UPDATE_LIST/")"
 
-    # Download updates (all updates if a restart is required for any, otherwise
-    # just recommended updates).
-    echo "Caching $INSTALL_WHICH system updates..."
-    /usr/sbin/softwareupdate --download --$INSTALL_WHICH --no-scan
+    # Download updates for Intel Macs (all updates if a restart is required for
+    # any, otherwise just recommended updates).
+    if [[ "$PLATFORM_ARCH" = "i386" ]]; then
+        echo "Caching $INSTALL_WHICH system updates..."
+        /usr/sbin/softwareupdate --download --$INSTALL_WHICH --no-scan
+    fi
 
 }
 
@@ -214,31 +226,61 @@ EOF
 # by previous checks).
 run_updates () {
 
-    # Display HUD with updating message.
-    "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
+    # On Apple Silicon Macs, running softwareupdate --install via script is
+    # currently unsupported, so we'll just inform the user with a persistent
+    # alert and open the Software Update window for manual update.
+    if [[ "$PLATFORM_ARCH" = "arm64" ]]; then
 
-    # Run Apple system updates.
-    echo "Running $INSTALL_WHICH Apple system updates..."
-    # macOS Big Sur requires triggering the restart as part of the softwareupdate action, meaning the script will not be able to run its clean_up functions until the next time it is run.
-    if [[ "$OS_MAJOR" -gt 10 ]] && [[ "$INSTALL_WHICH" = "all" ]]; then
-      echo "System will restart as soon as the update is finished. Cleanup tasks will run on a subsequent update check."
-    fi
-    # shellcheck disable=SC2086
-    UPDATE_OUTPUT_CAPTURE="$(/usr/sbin/softwareupdate --install --${INSTALL_WHICH} ${RESTART_FLAG} --no-scan 2>&1)"
-    echo "Finished running Apple updates."
+        echo "This is an Apple Silicon Mac with pending updates. Displaying persistent alert until updates are applied..."
 
-    # Trigger restart if script found an update which requires it.
-    if [[ "$INSTALL_WHICH" = "all" ]]; then
-        # Shut down the Mac if BridgeOS received an update requiring it.
-        if [[ "$UPDATE_OUTPUT_CAPTURE" == *"select Shut Down from the Apple menu"* ]]; then
-            trigger_restart "shut down"
-        # Otherwise, restart the Mac.
-        else
-            trigger_restart "restart"
+        # Loop this check until softwareupdate --list shows no more pending
+        # recommended updates.
+        while [[ $(/usr/sbin/softwareupdate --list) == *"Recommended: YES"* ]]; do
+
+            # Display persistent HUD with update prompt message.
+            echo "Prompting to install updates now and opening System Preferences - Software Update..."
+            "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_HEADING" -description "$MSG_ACT_NOW" -lockHUD &
+
+            # Open System Preferences - Software Update in current user context.
+            CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
+            USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
+            /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
+
+            # Clear out jamfHelper alert before looping to prevent pileups.
+            echo "Killing any active jamfHelper notifications..."
+            /usr/bin/killall jamfHelper 2>"/dev/null"
+
+        done
+
+    else
+
+        # Display HUD with updating message.
+        "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
+
+        # Run Apple system updates.
+        echo "Running $INSTALL_WHICH Apple system updates..."
+        # macOS Big Sur requires triggering the restart as part of the softwareupdate action, meaning the script will not be able to run its clean_up functions until the next time it is run.
+        if [[ "$OS_MAJOR" -gt 10 ]] && [[ "$INSTALL_WHICH" = "all" ]]; then
+          echo "System will restart as soon as the update is finished. Cleanup tasks will run on a subsequent update check."
         fi
-    fi
+        # shellcheck disable=SC2086
+        UPDATE_OUTPUT_CAPTURE="$(/usr/sbin/softwareupdate --install --${INSTALL_WHICH} ${RESTART_FLAG} --no-scan 2>&1)"
+        echo "Finished running Apple updates."
 
-    clean_up
+        # Trigger restart if script found an update which requires it.
+        if [[ "$INSTALL_WHICH" = "all" ]]; then
+            # Shut down the Mac if BridgeOS received an update requiring it.
+            if [[ "$UPDATE_OUTPUT_CAPTURE" == *"select Shut Down from the Apple menu"* ]]; then
+                trigger_restart "shut down"
+            # Otherwise, restart the Mac.
+            else
+                trigger_restart "restart"
+            fi
+        fi
+
+        clean_up
+
+    fi
 
 }
 
@@ -282,7 +324,7 @@ trigger_restart () {
 
     # Immediately attempt a "soft" restart.
     echo "Attempting a \"soft\" $1..."
-    CURRENT_USER=$(/usr/bin/stat -f%Su /dev/console)
+    CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
     USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
     /bin/launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
 
@@ -370,15 +412,6 @@ fi
 # Determine platform architecture.
 PLATFORM_ARCH=$(/usr/bin/arch)
 
-# This script has currently been tested on Intel Macs, and will exit with error
-# when run on Apple Silicon Macs.
-# This logic should be updated after the script has been tested and updated for
-# Apple Silicon Mac compatibility.
-if [[ "$PLATFORM_ARCH" = "arm64" ]]; then
-    echo "❌ ERROR: This script has not been tested on Apple Silicon Macs, unable to proceed."
-    BAILOUT=true
-fi
-
 # We need to be connected to the internet in order to download updates.
 if nc -zw1 swscan.apple.com 443; then
     # Check if a custom CatalogURL is set and if it is available
@@ -422,16 +455,16 @@ fi
 ################################ MAIN PROCESS #################################
 
 # Validate logo file. If no logo is provided or if the file cannot be found at
-# specified path, default to the Software Update icon.
+# specified path, default to the Software Update preference pane icon.
 if [[ -z "$LOGO" ]] || [[ ! -f "$LOGO" ]]; then
     echo "No logo provided, or no image file exists at specified path. Using Software Update icon."
     # macOS High Sierra is the only supported macOS that does not have a
-    # Software Update preference pane, so we'll use the Software Update.app
-    # icon instead.
+    # Software Update prefPane, so we'll use the Software Update.app icon
+    # instead.
     if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -eq 13 ]]; then
-      LOGO="/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
+        LOGO="/System/Library/CoreServices/Software Update.app/Contents/Resources/SoftwareUpdate.icns"
     else
-      LOGO="/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns"
+        LOGO="/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns"
     fi
 fi
 
