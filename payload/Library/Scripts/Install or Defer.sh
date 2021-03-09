@@ -12,7 +12,7 @@
 #                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2020-12-17
+#   Last Modified:  2021-03-08
 #         Version:  4.0.3
 #
 ###
@@ -49,24 +49,26 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 
 # The message users will receive when updates are available, shown above the
 # "Run Updates" and "Defer" buttons.
-MSG_ACT_OR_DEFER_HEADING="Critical updates are available"
-MSG_ACT_OR_DEFER="Your Mac needs to run critical security updates<< which require a restart>>:
+MSG_ACT_OR_DEFER_HEADING="Updates are available"
+MSG_ACT_OR_DEFER="Your Mac needs to run the following updates<< which require a restart>>:
 
 UPDATE_LIST
 
 Please save your work, quit all applications, and click Run Updates. {{If now is not a good time, you may defer this message until later. }}Updates will install automatically after %DEFER_HOURS% hours<<, forcing your Mac to restart in the process>>.
 
-If you have any questions, please contact IT."
+Please contact IT for any questions."
 
 # The message users will receive after the deferral deadline has been reached.
 MSG_ACT_HEADING="Please run updates now"
-MSG_ACT="Please save your work, then run all available macOS security updates<< (restart your Mac when prompted)>>. If no action is taken, these updates will be installed automatically:
+MSG_ACT="Your Mac is about to run the following updates<< and restart>>:
 
-UPDATE_LIST"
+UPDATE_LIST
+
+Please save your work and quit any of the above applications. You can manually run macOS updates in System Preferences > Softare Update."
 
 # The message users will receive while updates are running in the background.
 MSG_UPDATING_HEADING="Running updates"
-MSG_UPDATING="Running the following macOS updates in the background<< (your Mac will restart automatically when this is finished)>>:
+MSG_UPDATING="Running the following updates in the background<< (your Mac will restart automatically when this is finished)>>:
 
 UPDATE_LIST"
 
@@ -109,15 +111,16 @@ convert_seconds () {
 
 }
 
-# Caches all available critical system updates, or exits if no critical updates
-# are available.
+# Checks for recommended macOS updates, or exits if no such updates are
+# available.
 check_for_updates () {
 
     echo "Checking for pending system updates..."
     UPDATE_CHECK=$(/usr/sbin/softwareupdate --list 2>&1)
 
-    # Determine whether any critical updates are available.
-    # If a restart is required, run all available updates.
+    # Determine whether any recommended macOS updates are available.
+    # If a restart is required for any pending updates, then run all available
+    # software updates.
     if [[ "$UPDATE_CHECK" =~ (Action: restart|\[restart\]) ]]; then
         INSTALL_WHICH="all"
         RESTART_FLAG="--restart"
@@ -135,9 +138,9 @@ check_for_updates () {
         MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/\<\<.*\>\>//g')"
-    # If no updates need to be installed, bail out.
+    # If no recommended updates need to be installed, bail out.
     else
-        echo "No critical updates available."
+        echo "No recommended updates available."
         exit_without_updating
     fi
 
