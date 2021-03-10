@@ -12,7 +12,7 @@
 #                   in that update check, the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2021-03-09
+#   Last Modified:  2021-03-10
 #         Version:  4.1
 #
 ###
@@ -245,6 +245,9 @@ run_updates () {
             CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
             USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
             /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
+
+            # Leave the alert up for 60 seconds before looping.
+            sleep 60
 
             # Clear out jamfHelper alert before looping to prevent pileups.
             echo "Killing any active jamfHelper notifications..."
