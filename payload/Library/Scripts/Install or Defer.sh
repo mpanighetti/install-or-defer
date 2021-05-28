@@ -12,8 +12,8 @@
 #                   in that update check, the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2021-03-10
-#         Version:  4.1
+#   Last Modified:  2021-05-28
+#         Version:  4.1.1
 #
 ###
 
@@ -40,7 +40,7 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 ################################## MESSAGING ##################################
 
 # The messages below use the following dynamic substitutions:
-#   - %DEFER_HOURS% will be automatically replaced by the number of hours
+#   - %DEFER_HOURS% will be automatically replaced by the number of days/hours/minutes
 #     remaining in the deferral period.
 #   - The section in the {{double curly brackets}} will be removed when this
 #     message is displayed for the final time before the deferral deadline.
@@ -54,7 +54,7 @@ MSG_ACT_OR_DEFER="Your Mac needs to run the following updates<< which require a 
 
 UPDATE_LIST
 
-Please save your work, quit all applications, and click Run Updates. {{If now is not a good time, you may defer this message until later. }}These updates will be required after %DEFER_HOURS% hours<<, forcing your Mac to restart after they run>>.
+Please save your work, quit all applications, and click Run Updates. {{If now is not a good time, you may defer this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they run>>.
 
 Please contact IT for any questions."
 
@@ -106,15 +106,17 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 convert_seconds () {
 
     if [[ $1 -eq 0 ]]; then
+        DAYS=0
         HOURS=0
         MINUTES=0
         SECONDS=0
     else
-        ((HOURS=${1}/3600))
+        ((DAYS=${1}/86400))
+        ((HOURS=${1}%86400/3600))
         ((MINUTES=(${1}%3600)/60))
         ((SECONDS=${1}%60))
     fi
-    printf "%02dh:%02dm:%02ds\n" "$HOURS" "$MINUTES" "$SECONDS"
+    printf "%02dd:%02dh:%02dm:%02ds\n" "$DAYS" "$HOURS" "$MINUTES" "$SECONDS"
 
 }
 
@@ -520,12 +522,18 @@ PROMPT_START=$(/bin/date +%s)
 if (( DEFER_TIME_LEFT > 0 )); then
 
     # Substitute the correct number of hours remaining.
-    if (( DEFER_TIME_LEFT > 7200 )); then
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%DEFER_HOURS%/$(( DEFER_TIME_LEFT / 3600 ))}"
+    # If time left is more than 2 days, use days
+    if (( DEFER_TIME_LEFT > 172800 )); then
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%DEFER_HOURS%/$(( DEFER_TIME_LEFT / 86400 )) days}"
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER// 1 days/ 1 day}"
+    # If time left is more than 2 hours, use hours
+    elif (( DEFER_TIME_LEFT > 7200 )); then
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%DEFER_HOURS%/$(( DEFER_TIME_LEFT / 3600 )) hours}"
         MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER// 1 hours/ 1 hour}"
+    # If time left is more than 1 minute, use minutes
     elif (( DEFER_TIME_LEFT > 60 )); then
         MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%DEFER_HOURS% hours/$(( DEFER_TIME_LEFT / 60 )) minutes}"
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER// 1 minutes/ 1 minute}"
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER// 1 minutes/ 1 minute}"    
     else
         MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//after %DEFER_HOURS% hours/very soon}"
     fi
