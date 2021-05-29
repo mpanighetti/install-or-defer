@@ -13,7 +13,7 @@
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
 #   Last Modified:  2021-05-28
-#         Version:  4.1.1
+#         Version:  4.1.2
 #
 ###
 
@@ -39,6 +39,12 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 
 ################################## MESSAGING ##################################
 
+# The label of the install button.
+INSTALL_BUTTON="Update"
+
+# The label of the defer button.
+DEFER_BUTTON="Defer"
+
 # The messages below use the following dynamic substitutions:
 #   - %DEFER_HOURS% will be automatically replaced by the number of days/hours/minutes
 #     remaining in the deferral period.
@@ -48,13 +54,13 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 #     restart is not required for the pending updates.
 
 # The message users will receive when updates are available, shown above the
-# "Run Updates" and "Defer" buttons.
+# install and defer buttons.
 MSG_ACT_OR_DEFER_HEADING="Updates are available"
 MSG_ACT_OR_DEFER="Your Mac needs to run the following updates<< which require a restart>>:
 
 UPDATE_LIST
 
-Please save your work, quit all applications, and click Run Updates. {{If now is not a good time, you may defer this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they run>>.
+Please save your work, quit any of the above applications, and click ${INSTALL_BUTTON}. {{If now is not a good time, you may defer this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they run>>.
 
 Please contact IT for any questions."
 
@@ -64,17 +70,20 @@ MSG_ACT="Your Mac is about to run the following updates<< and restart>>:
 
 UPDATE_LIST
 
-Please save your work and quit any of the above applications. You can manually run these updates in System Preferences - Software Update."
+Please save your work, quit any of the above applications, and click ${INSTALL_BUTTON} before the deadline.<< Your Mac will restart when all updates are finished running.>>
+
+Please contact IT for any questions."
 
 # The message users will receive when a manual update action is required.
+MSG_ACT_NOW_HEADING="Updates are available"
 MSG_ACT_NOW="Your Mac needs to run the following updates<< which require a restart>>:
 
 UPDATE_LIST
 
-Please save your work, quit all other applications, then open System Preferences - Software Update and run all available updates.<< Your Mac will restart when updates are finished running.>>"
+Please save your work, quit any of the above applications, open System Preferences -> Software Update, and run all available updates.<< Your Mac will restart when all updates are finished running.>>"
 
 # The message users will receive while updates are running in the background.
-MSG_UPDATING_HEADING="Running updates"
+MSG_UPDATING_HEADING="Running updates..."
 MSG_UPDATING="Running the following updates in the background<< (your Mac will restart automatically when this is finished)>>:
 
 UPDATE_LIST"
@@ -105,7 +114,7 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # Created by: perreal (http://stackoverflow.com/users/390913/perreal)
 convert_seconds () {
 
-    if [[ $1 -eq 0 ]]; then
+    if [[ $1 -le 0 ]]; then
         DAYS=0
         HOURS=0
         MINUTES=0
@@ -182,44 +191,13 @@ check_for_updates () {
 # This function is invoked after the deferral deadline passes.
 display_act_msg () {
 
-    # Create a jamfHelper script that will be called by a LaunchDaemon.
-    /bin/cat << EOF > "$HELPER_SCRIPT"
-#!/bin/bash
-"$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_HEADING" -description "$MSG_ACT"
-EOF
-    /bin/chmod +x "$HELPER_SCRIPT"
-
-    # Create the LaunchDaemon that we'll use to show the persistent jamfHelper
-    # messages.
-    /bin/cat << EOF > "$HELPER_LD"
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>KeepAlive</key>
-	<true/>
-	<key>Label</key>
-	<string>${BUNDLE_ID}_helper</string>
-	<key>Program</key>
-	<string>$HELPER_SCRIPT</string>
-	<key>ThrottleInterval</key>
-	<integer>10</integer>
-</dict>
-</plist>
-EOF
-
-    # Load the LaunchDaemon to show the jamfHelper message.
-    echo "Displaying \"run updates\" message..."
+    # Display persistent HUD with update prompt message.
+    echo "Killing any active jamfHelper notifications..."
     /usr/bin/killall jamfHelper 2>"/dev/null"
-    /bin/launchctl load -w "$HELPER_LD"
+    echo "Displaying \"run updates\" message for $(( UPDATE_DELAY/60 )) minutes before automatically applying updates..."
+    "$JAMFHELPER" -windowType "utility" -windowPosition "ur" -title "$MSG_ACT_HEADING" -description "$MSG_ACT" -icon "$LOGO" -button1 "$INSTALL_BUTTON" -defaultButton 1 -alignCountdown "right" -timeout "$UPDATE_DELAY" -countdown -lockHUD >"/dev/null"
 
-    # After specified delay, apply updates.
-    echo "Waiting $(( UPDATE_DELAY / 60 )) minutes before automatically applying updates..."
-    /bin/sleep "$UPDATE_DELAY"
-    echo "$(( UPDATE_DELAY / 60 )) minutes have elapsed since user was prompted to run updates. Triggering updates..."
-
-    /bin/launchctl unload "$HELPER_LD"
-
+    # Run updates after either user confirmation or alert timeout.
     run_updates
 
 }
@@ -240,8 +218,8 @@ run_updates () {
         while [[ $(/usr/sbin/softwareupdate --list) == *"Recommended: YES"* ]]; do
 
             # Display persistent HUD with update prompt message.
-            echo "Prompting to install updates now and opening System Preferences - Software Update..."
-            "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_HEADING" -description "$MSG_ACT_NOW" -lockHUD &
+            echo "Prompting to install updates now and opening System Preferences -> Software Update..."
+            "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_NOW_HEADING" -description "$MSG_ACT_NOW" -lockHUD &
 
             # Open System Preferences - Software Update in current user context.
             CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
@@ -549,7 +527,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
     # Show the install/defer prompt.
     echo "Prompting to install updates now or defer..."
-    PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_OR_DEFER_HEADING" -description "$MSG_ACT_OR_DEFER" -button1 "Run Updates" -button2 "Defer" -defaultButton 2 -timeout 3600 -startlaunchd 2>"/dev/null")
+    PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_OR_DEFER_HEADING" -description "$MSG_ACT_OR_DEFER" -button1 "$INSTALL_BUTTON" -button2 "$DEFER_BUTTON" -defaultButton 2 -timeout 3600 -startlaunchd 2>"/dev/null")
     JAMFHELPER_PID=$!
 
     # Make a note of the amount of time the prompt was shown onscreen.
