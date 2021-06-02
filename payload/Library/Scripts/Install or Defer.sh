@@ -12,7 +12,7 @@
 #                   in that update check, the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2021-05-28
+#   Last Modified:  2021-06-02
 #         Version:  4.1.2
 #
 ###
@@ -194,7 +194,7 @@ display_act_msg () {
     # Display persistent HUD with update prompt message.
     echo "Killing any active jamfHelper notifications..."
     /usr/bin/killall jamfHelper 2>"/dev/null"
-    echo "Displaying \"run updates\" message for $(( UPDATE_DELAY/60 )) minutes before automatically applying updates..."
+    echo "Displaying \"run updates\" message for $(( UPDATE_DELAY / 60 )) minutes before automatically applying updates..."
     "$JAMFHELPER" -windowType "utility" -windowPosition "ur" -title "$MSG_ACT_HEADING" -description "$MSG_ACT" -icon "$LOGO" -button1 "$INSTALL_BUTTON" -defaultButton 1 -alignCountdown "right" -timeout "$UPDATE_DELAY" -countdown -lockHUD >"/dev/null"
 
     # Run updates after either user confirmation or alert timeout.
@@ -511,7 +511,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
     # If time left is more than 1 minute, use minutes
     elif (( DEFER_TIME_LEFT > 60 )); then
         MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%DEFER_HOURS% hours/$(( DEFER_TIME_LEFT / 60 )) minutes}"
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER// 1 minutes/ 1 minute}"    
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER// 1 minutes/ 1 minute}"
     else
         MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//after %DEFER_HOURS% hours/very soon}"
     fi
