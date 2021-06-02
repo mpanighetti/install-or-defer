@@ -195,7 +195,7 @@ display_act_msg () {
     echo "Killing any active jamfHelper notifications..."
     /usr/bin/killall jamfHelper 2>"/dev/null"
     echo "Displaying \"run updates\" message for $(( UPDATE_DELAY / 60 )) minutes before automatically applying updates..."
-    "$JAMFHELPER" -windowType "utility" -windowPosition "ur" -title "$MSG_ACT_HEADING" -description "$MSG_ACT" -icon "$LOGO" -button1 "$INSTALL_BUTTON" -defaultButton 1 -alignCountdown "right" -timeout "$UPDATE_DELAY" -countdown -lockHUD >"/dev/null"
+    "$JAMFHELPER" -windowType "utility" -windowPosition "ur" -title "$MSG_ACT_HEADING" -description "$MSG_ACT" -icon "$LOGO" -button1 "$INSTALL_BUTTON" -defaultButton 1 -alignCountdown "right" -timeout "$UPDATE_DELAY" -countdown >"/dev/null"
 
     # Run updates after either user confirmation or alert timeout.
     run_updates
