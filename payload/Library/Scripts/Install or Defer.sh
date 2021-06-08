@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2001
 
 ###
 #
@@ -170,11 +171,11 @@ check_for_updates () {
     UPDATE_LIST="$(echo "$UPDATE_LIST" | /usr/bin/tr '\n' ',' | /usr/bin/sed 's/^ *//; s/,/, /g; s/, $//')"
     # Reformat update list to replace last comma with ", and" or " and" as
     # needed for legibility. In this house, we use Oxford commas.
-    COMMA_COUNT=$(echo "$UPDATE_LIST" | /usr/bin/tr -dc ',' | /usr/bin/wc -c | /usr/bin/bc)
+    COMMA_COUNT="$(echo "$UPDATE_LIST" | /usr/bin/tr -dc ',' | /usr/bin/wc -c | /usr/bin/bc)"
     if [ "$COMMA_COUNT" -gt 1 ]; then
-        UPDATE_LIST=$(echo "$UPDATE_LIST" | sed 's/\(.*\),/\1, and/')
+        UPDATE_LIST="$(echo "$UPDATE_LIST" | sed 's/\(.*\),/\1, and/')"
     elif [ "$COMMA_COUNT" -eq 1 ]; then
-        UPDATE_LIST=$(echo "$UPDATE_LIST" | sed 's/\(.*\),/\1 and/')
+        UPDATE_LIST="$(echo "$UPDATE_LIST" | sed 's/\(.*\),/\1 and/')"
     fi
     # Populate the list of pending updates in message text.
     MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed "s/%UPDATE_LIST%/$UPDATE_LIST/")"
