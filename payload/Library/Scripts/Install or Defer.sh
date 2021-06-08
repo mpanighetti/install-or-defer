@@ -12,8 +12,8 @@
 #                   in that update check, the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2021-06-02
-#         Version:  4.1.2
+#   Last Modified:  2021-06-07
+#         Version:  4.1.3
 #
 ###
 
@@ -45,9 +45,13 @@ INSTALL_BUTTON="Update"
 # The label of the defer button.
 DEFER_BUTTON="Defer"
 
-# The messages below use the following dynamic substitutions:
-#   - %DEFER_HOURS% will be automatically replaced by the number of days/hours/minutes
-#     remaining in the deferral period.
+# The messages below use the following dynamic substitutions wherever found:
+#   - %UPDATE_LIST% will be automatically replaced with a comma-separated list
+#     of all recommended updates found in a Software Update check.
+#   - %DEFER_HOURS% will be automatically replaced by the number of days, hours,
+#     or minutes remaining in the deferral period.
+#   - %DEADLINE_DATE% will be automatically replaced by the deadline date and
+#     time before updates are enforced.
 #   - The section in the {{double curly brackets}} will be removed when this
 #     message is displayed for the final time before the deferral deadline.
 #   - The sections in the <<double comparison operators>> will be removed if a
@@ -56,9 +60,7 @@ DEFER_BUTTON="Defer"
 # The message users will receive when updates are available, shown above the
 # install and defer buttons.
 MSG_ACT_OR_DEFER_HEADING="Updates are available"
-MSG_ACT_OR_DEFER="Your Mac needs to run the following updates<< which require a restart>>:
-
-UPDATE_LIST
+MSG_ACT_OR_DEFER="Your Mac needs to run updates for %UPDATE_LIST% by %DEADLINE_DATE%.
 
 Please save your work, quit any of the above applications, and click ${INSTALL_BUTTON}. {{If now is not a good time, you may defer this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they run>>.
 
@@ -66,9 +68,7 @@ Please contact IT for any questions."
 
 # The message users will receive after the deferral deadline has been reached.
 MSG_ACT_HEADING="Please run updates now"
-MSG_ACT="Your Mac is about to run the following updates<< and restart>>:
-
-UPDATE_LIST
+MSG_ACT="Your Mac is about to run updates for %UPDATE_LIST% << and restart>>.
 
 Please save your work, quit any of the above applications, and click ${INSTALL_BUTTON} before the deadline.<< Your Mac will restart when all updates are finished running.>>
 
@@ -76,17 +76,13 @@ Please contact IT for any questions."
 
 # The message users will receive when a manual update action is required.
 MSG_ACT_NOW_HEADING="Updates are available"
-MSG_ACT_NOW="Your Mac needs to run the following updates<< which require a restart>>:
+MSG_ACT_NOW="Your Mac needs to run updates for %UPDATE_LIST% << which require a restart>>.
 
-UPDATE_LIST
-
-Please save your work, quit any of the above applications, open System Preferences -> Software Update, and run all available updates.<< Your Mac will restart when all updates are finished running.>>"
+Please save your work, quit any of the above applications, then open System Preferences -> Software Update and run all available updates.<< Your Mac will restart when all updates are finished running.>>"
 
 # The message users will receive while updates are running in the background.
 MSG_UPDATING_HEADING="Running updates..."
-MSG_UPDATING="Running the following updates in the background<< (your Mac will restart automatically when this is finished)>>:
-
-UPDATE_LIST"
+MSG_UPDATING="Running updates for %UPDATE_LIST% in the background.<< Your Mac will restart automatically when this is finished.>>"
 
 
 #################################### TIMING ###################################
@@ -172,11 +168,19 @@ check_for_updates () {
     fi
     # Convert update list from multiline to comma-separated list.
     UPDATE_LIST="$(echo "$UPDATE_LIST" | /usr/bin/tr '\n' ',' | /usr/bin/sed 's/^ *//; s/,/, /g; s/, $//')"
+    # Reformat update list to replace last comma with ", and" or " and" as
+    # needed for legibility. In this house, we use Oxford commas.
+    COMMA_COUNT=$(echo "$UPDATE_LIST" | /usr/bin/tr -dc ',' | /usr/bin/wc -c | /usr/bin/bc)
+    if [ "$COMMA_COUNT" -gt 1 ]; then
+        UPDATE_LIST=$(echo "$UPDATE_LIST" | sed 's/\(.*\),/\1, and/')
+    elif [ "$COMMA_COUNT" -eq 1 ]; then
+        UPDATE_LIST=$(echo "$UPDATE_LIST" | sed 's/\(.*\),/\1 and/')
+    fi
     # Populate the list of pending updates in message text.
-    MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed "s/UPDATE_LIST/$UPDATE_LIST/")"
-    MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed "s/UPDATE_LIST/$UPDATE_LIST/")"
-    MSG_ACT_NOW="$(echo "$MSG_ACT_NOW" | /usr/bin/sed "s/UPDATE_LIST/$UPDATE_LIST/")"
-    MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/UPDATE_LIST/$UPDATE_LIST/")"
+    MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed "s/%UPDATE_LIST%/$UPDATE_LIST/")"
+    MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed "s/%UPDATE_LIST%/$UPDATE_LIST/")"
+    MSG_ACT_NOW="$(echo "$MSG_ACT_NOW" | /usr/bin/sed "s/%UPDATE_LIST%/$UPDATE_LIST/")"
+    MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%UPDATE_LIST%/$UPDATE_LIST/")"
 
     # Download updates for Intel Macs (all updates if a restart is required for
     # any, otherwise just recommended updates).
@@ -565,11 +569,17 @@ if (( DEFER_TIME_LEFT > 0 )); then
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 2 ]]; then
         echo "User clicked Defer $PROMPT_ELAPSED_STR."
         NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
+        if (( FORCE_DATE < NEXT_PROMPT )); then
+            NEXT_PROMPT="$FORCE_DATE"
+        fi
         /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
         echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 239 ]]; then
         echo "User deferred by exiting jamfHelper $PROMPT_ELAPSED_STR."
         NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
+        if (( FORCE_DATE < NEXT_PROMPT )); then
+            NEXT_PROMPT="$FORCE_DATE"
+        fi
         /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
         echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -gt 2 ]]; then
