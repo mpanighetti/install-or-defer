@@ -520,6 +520,10 @@ if (( DEFER_TIME_LEFT > 0 )); then
         MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//after %DEFER_HOURS% hours/very soon}"
     fi
 
+    # Substitute the deadline date.
+    MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%DEADLINE_DATE%/$(/bin/date -jf "%s" "+%b %d, %Y at %I:%M%p" "$FORCE_DATE")}"
+    MSG_ACT_OR_DEFER_HEADING="${MSG_ACT_OR_DEFER_HEADING//%DEADLINE_DATE%/$(/bin/date -jf "%s" "+%b %d, %Y" "$FORCE_DATE")}"
+
     # Determine whether to include the "you may defer" wording.
     if (( EACH_DEFER > DEFER_TIME_LEFT )); then
         # Remove "{{" and "}}" including all the text between.
