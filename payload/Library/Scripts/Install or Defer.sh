@@ -601,7 +601,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 1 ]]; then
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "❌ ERROR: jamfHelper was not able to launch $PROMPT_ELAPSED_STR."
+        echo "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
         exit 1
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 2 ]]; then
         echo "User clicked ${DEFER_BUTTON} ${PROMPT_ELAPSED_STR}."
