@@ -106,6 +106,14 @@ There are several settings in the script that can be customized by changing defa
 
 #### Messaging
 
+- `INSTALL_BUTTON`
+
+    The label of the install button.
+
+- `DEFER_BUTTON`
+
+    The label of the defer button.
+
 - `MSG_ACT_OR_DEFER_HEADING`
 
     The heading/title of the message users will receive when updates are available.
@@ -122,6 +130,14 @@ There are several settings in the script that can be customized by changing defa
 
     The body of the message users will receive when they must run updates immediately.
 
+- `MSG_ACT_NOW_HEADING`
+
+    The heading/title of the message users will receive when a manual update action is required.
+
+- `MSG_ACT_NOW`
+
+    The body of the message users will receive when a manual update action is required.
+
 - `MSG_UPDATING_HEADING`
 
     The heading/title of the message users will receive when updates are running in the background.
@@ -132,9 +148,11 @@ There are several settings in the script that can be customized by changing defa
 
 The above messages use the following dynamic substitutions:
 
-- `%DEFER_HOURS%` will be automatically replaced by the number of hours remaining in the deferral period.
-- The section in the `<<double comparison operators>>` will be removed if a restart is not required.
+- `%UPDATE_LIST%` will be automatically replaced with a comma-separated list of all recommended updates found in a Software Update check.
+- `%DEFER_HOURS%` will be automatically replaced by the number of days, hours, or minutes remaining in the deferral period.
+- `%DEADLINE_DATE%` will be automatically replaced by the deadline date and time before updates are enforced.
 - The section in the `{{double curly brackets}}` will be removed when this message is displayed for the final time before the deferral deadline.
+- The section in the `<<double comparison operators>>` will be removed if a restart is not required.
 
 #### Timing
 
