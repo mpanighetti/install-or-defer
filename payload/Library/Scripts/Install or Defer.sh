@@ -7,14 +7,15 @@
 #     Description:  This script, meant to be triggered periodically by a
 #                   LaunchDaemon, will prompt users to install Apple system
 #                   updates that the IT department has deemed "critical." Users
-#                   will have the option to Run Updates or Defer. After a
-#                   specified amount of time, the update will be forced on
-#                   Intel Macs, and if updates requiring a restart were found
-#                   in that update check, the system restarts automatically.
+#                   will have the option to install the listed updates or defer
+#                   for the established time period. After a specified amount
+#                   of time, the update will be forced on Intel Macs, and if
+#                   updates requiring a restart were found in that update check,
+#                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2021-06-07
-#         Version:  4.1.3
+#   Last Modified:  2021-07-22
+#         Version:  4.1.4
 #
 ###
 
@@ -102,6 +103,15 @@ UPDATE_DELAY=$(( 60 * 10 )) # (600 = 10 minutes)
 # restart.
 HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 
+# (optional) The hours that a workday starts and ends in your organization.
+# These values must each be an integer between 0 and 23, and the end hour must
+# be later than the start hour. If the update deadline falls within this window
+# of time, it will be moved forward to occur at the end of the workday. If you
+# want to use this functionality, uncomment both variables and set your desired
+# values.
+#WORKDAY_START_HR=9
+#WORKDAY_END_HR=17
+
 
 ################################## FUNCTIONS ##################################
 
@@ -178,10 +188,10 @@ check_for_updates () {
         UPDATE_LIST="$(echo "$UPDATE_LIST" | sed 's/\(.*\),/\1 and/')"
     fi
     # Populate the list of pending updates in message text.
-    MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed "s/%UPDATE_LIST%/$UPDATE_LIST/")"
-    MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed "s/%UPDATE_LIST%/$UPDATE_LIST/")"
-    MSG_ACT_NOW="$(echo "$MSG_ACT_NOW" | /usr/bin/sed "s/%UPDATE_LIST%/$UPDATE_LIST/")"
-    MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%UPDATE_LIST%/$UPDATE_LIST/")"
+    MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
+    MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
+    MSG_ACT_NOW="$(echo "$MSG_ACT_NOW" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
+    MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
 
     # Download updates for Intel Macs (all updates if a restart is required for
     # any, otherwise just recommended updates).
@@ -284,7 +294,7 @@ clean_up () {
 
     echo "Cleaning up script resources..."
     CLEANUP_FILES=(
-        "/Library/LaunchDaemons/$BUNDLE_ID.plist"
+        "/Library/LaunchDaemons/${BUNDLE_ID}.plist"
         "$HELPER_LD"
         "$HELPER_SCRIPT"
         "$SCRIPT_PATH"
@@ -311,16 +321,16 @@ trigger_restart () {
     clean_up
 
     # Immediately attempt a "soft" restart.
-    echo "Attempting a \"soft\" $1..."
+    echo "Attempting a \"soft\" ${1}..."
     CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
     USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
-    /bin/launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
+    /bin/launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to ${1}"
 
     # After specified delay, kill all apps forcibly, which clears the way for
     # an unobstructed restart.
-    echo "Waiting $(( HARD_RESTART_DELAY / 60 )) minutes before forcing a \"hard\" $1..."
+    echo "Waiting $(( HARD_RESTART_DELAY / 60 )) minutes before forcing a \"hard\" ${1}..."
     /bin/sleep "$HARD_RESTART_DELAY"
-    echo "$(( HARD_RESTART_DELAY / 60 )) minutes have elapsed since \"soft\" $1 was attempted. Forcing \"hard\" $1..."
+    echo "$(( HARD_RESTART_DELAY / 60 )) minutes have elapsed since \"soft\" ${1} was attempted. Forcing \"hard\" ${1}..."
 
     USER_PIDS=$(pgrep -u "$USER_ID")
     LOGINWINDOW_PID=$(pgrep -x -u "$USER_ID" loginwindow)
@@ -330,7 +340,7 @@ trigger_restart () {
             kill -9 "$PID"
         fi
     done
-    /bin/launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to $1"
+    /bin/launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to ${1}"
     # Mac should restart now, ending this script and installing updates.
 
 }
@@ -344,8 +354,8 @@ exit_without_updating () {
     clean_up
 
     # Unload main LaunchDaemon. This will likely kill the script.
-    if [[ $(/bin/launchctl list) == *"$BUNDLE_ID"* ]]; then
-        echo "Unloading $BUNDLE_ID LaunchDaemon..."
+    if [[ $(/bin/launchctl list) == *"${BUNDLE_ID}"* ]]; then
+        echo "Unloading ${BUNDLE_ID} LaunchDaemon..."
         /bin/launchctl remove "$BUNDLE_ID"
     fi
     echo "Script will end here."
@@ -361,7 +371,7 @@ exec 1> >(/usr/bin/logger -s -t "$(/usr/bin/basename "$0")") 2>&1
 echo "Starting $(/usr/bin/basename "$0"). Performing validation and error checking..."
 
 # Define custom $PATH.
-PATH="/usr/sbin:/usr/bin:/usr/local/bin:$PATH"
+PATH="/usr/sbin:/usr/bin:/usr/local/bin:${PATH}"
 
 # Filename and path we will use for the auto-generated helper script and LaunchDaemon.
 HELPER_SCRIPT="/Library/Scripts/$(/usr/bin/basename "$0" | /usr/bin/sed "s/.sh$//g")_helper.sh"
@@ -425,10 +435,20 @@ if /usr/bin/fdesetup status | /usr/bin/grep -q "in progress"; then
     BAILOUT=true
 fi
 
+# Validate workday start and end hours (if defined).
+if [[ -n "$WORKDAY_START_HR" ]] && [[ -n "$WORKDAY_END_HR" ]]; then
+    if (( 0 <= WORKDAY_START_HR && WORKDAY_START_HR < WORKDAY_END_HR && WORKDAY_END_HR < 24 )); then
+        echo "Workday: ${WORKDAY_START_HR}:00-${WORKDAY_END_HR}:00"
+    else
+        echo "❌ ERROR: There is a logical disconnect between the workday start hour (${WORKDAY_START_HR}) and end hour (${WORKDAY_END_HR}). Please update these values to meet script requirements (start hour ≥ 0, start hour < end hour, end hour < 24)."
+        BAILOUT=true
+    fi
+fi
+
 # If any of the errors above are present, bail out of the script now.
 if [[ "$BAILOUT" = "true" ]]; then
     # Checks for StartInterval definition in LaunchDaemon.
-    START_INTERVAL=$(/usr/bin/defaults read "/Library/LaunchDaemons/$BUNDLE_ID.plist" StartInterval 2>"/dev/null")
+    START_INTERVAL=$(/usr/bin/defaults read "/Library/LaunchDaemons/${BUNDLE_ID}.plist" StartInterval 2>"/dev/null")
     if [[ -n "$START_INTERVAL" ]]; then
         echo "Stopping due to errors, but will try again in $(convert_seconds "$START_INTERVAL")."
     else
@@ -460,11 +480,11 @@ fi
 # values, make a configuration profile enforcing the MaxDeferralTime (in
 # seconds) and SkipDeferral (boolean) attributes in $BUNDLE_ID to settings of
 # your choice.
-SKIP_DEFERRAL=$(/usr/bin/defaults read "/Library/Managed Preferences/$BUNDLE_ID" SkipDeferral 2>"/dev/null")
+SKIP_DEFERRAL=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SkipDeferral 2>"/dev/null")
 if [[ "$SKIP_DEFERRAL" = "True" ]]; then
     MAX_DEFERRAL_TIME=0
 else
-    MAX_DEFERRAL_TIME_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/$BUNDLE_ID" MaxDeferralTime 2>"/dev/null")
+    MAX_DEFERRAL_TIME_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MaxDeferralTime 2>"/dev/null")
     if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
         MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
     else
@@ -480,7 +500,19 @@ check_for_updates
 FORCE_DATE=$(/usr/bin/defaults read "$PLIST" UpdatesForcedAfter 2>"/dev/null")
 if [[ -z $FORCE_DATE || $FORCE_DATE -gt $(( $(/bin/date +%s) + MAX_DEFERRAL_TIME )) ]]; then
     FORCE_DATE=$(( $(/bin/date +%s) + MAX_DEFERRAL_TIME ))
-    /usr/bin/defaults write "$PLIST" UpdatesForcedAfter -int $FORCE_DATE
+    /usr/bin/defaults write "$PLIST" UpdatesForcedAfter -int "$FORCE_DATE"
+fi
+
+# If a workday start and end hour have been defined and the deadline currently
+# occurs during the workday, shift it forward to the end of the workday.
+if [[ -n "$WORKDAY_START_HR" ]] && [[ -n "$WORKDAY_END_HR" ]]; then
+    FORCE_DATE_HR=$(/bin/date -jf "%s" "+%H" "$FORCE_DATE")
+    if [[ "$FORCE_DATE_HR" -ge "$WORKDAY_START_HR" ]] && [[ "$FORCE_DATE_HR" -lt "$WORKDAY_END_HR" ]]; then
+        FORCE_DATE_YMD=$(/bin/date -jf "%s" "+%Y-%m-%d" "$FORCE_DATE")
+        FORCE_DATE=$(/bin/date -jf "%Y-%m-%d %H:%M:%S" "+%s" "${FORCE_DATE_YMD} ${WORKDAY_END_HR}:00:00")
+        /usr/bin/defaults write "$PLIST" UpdatesForcedAfter -int "$FORCE_DATE"
+        echo "Shifted deferral deadline forward to occur outside of workday."
+    fi
 fi
 
 # Calculate how much time remains until deferral deadline.
@@ -560,19 +592,19 @@ if (( DEFER_TIME_LEFT > 0 )); then
     if [[ -n $PROMPT && $PROMPT_ELAPSED_SEC -eq 0 ]]; then
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "❌ ERROR: jamfHelper returned code $PROMPT $PROMPT_ELAPSED_STR. It's unlikely that the user responded that quickly."
+        echo "❌ ERROR: jamfHelper returned code ${PROMPT} ${PROMPT_ELAPSED_STR}. It's unlikely that the user responded that quickly."
         exit 1
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 0 ]]; then
-        echo "User clicked Run Updates $PROMPT_ELAPSED_STR."
+        echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}."
         /usr/bin/defaults delete "$PLIST" UpdatesDeferredUntil 2>"/dev/null"
         run_updates
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 1 ]]; then
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "❌ ERROR: jamfHelper was not able to launch $PROMPT_ELAPSED_STR."
+        echo "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
         exit 1
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 2 ]]; then
-        echo "User clicked Defer $PROMPT_ELAPSED_STR."
+        echo "User clicked ${DEFER_BUTTON} ${PROMPT_ELAPSED_STR}."
         NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
         if (( FORCE_DATE < NEXT_PROMPT )); then
             NEXT_PROMPT="$FORCE_DATE"
@@ -580,7 +612,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
         /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
         echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 239 ]]; then
-        echo "User deferred by exiting jamfHelper $PROMPT_ELAPSED_STR."
+        echo "User deferred by exiting jamfHelper ${PROMPT_ELAPSED_STR}."
         NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
         if (( FORCE_DATE < NEXT_PROMPT )); then
             NEXT_PROMPT="$FORCE_DATE"
@@ -590,17 +622,17 @@ if (( DEFER_TIME_LEFT > 0 )); then
     elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -gt 2 ]]; then
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "❌ ERROR: jamfHelper produced an unexpected value (code $PROMPT) $PROMPT_ELAPSED_STR."
+        echo "❌ ERROR: jamfHelper produced an unexpected value (code ${PROMPT}) ${PROMPT_ELAPSED_STR}."
         exit 1
     elif [[ -z $PROMPT ]]; then # $PROMPT is not defined
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "❌ ERROR: jamfHelper returned no value $PROMPT_ELAPSED_STR. Run Updates/Defer response was not captured. This may be because the user logged out without clicking Run Updates/Defer."
+        echo "❌ ERROR: jamfHelper returned no value ${PROMPT_ELAPSED_STR}. ${INSTALL_BUTTON}/${DEFER_BUTTON} response was not captured. This may be because the user logged out without clicking ${INSTALL_BUTTON}/${DEFER_BUTTON}."
         exit 1
     else
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "❌ ERROR: Something went wrong. Check the jamfHelper return code ($PROMPT) and prompt elapsed seconds ($PROMPT_ELAPSED_SEC) for further information."
+        echo "❌ ERROR: Something went wrong. Check the jamfHelper return code (${PROMPT}) and prompt elapsed seconds (${PROMPT_ELAPSED_SEC}) for further information."
         exit 1
     fi
 

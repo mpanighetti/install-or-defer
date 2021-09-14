@@ -1,6 +1,6 @@
 # Install or Defer
 
-This framework will enforce the installation of pending Apple security updates on Jamf Pro-managed Macs. Users will have the option to __Run Updates__ or __Defer__. After a specified amount of time passes, the Mac will be prompted to install the updates, then restart automatically if any updates require it.
+This framework will enforce the installation of pending Apple security updates on Jamf Pro-managed Macs. Users will have the option to __Install__ or __Defer__. After a specified amount of time passes, the Mac will be prompted to install the updates, then restart automatically if any updates require it.
 
 ![Install or Defer prompt](img/install-or-defer-fullscreen.png)
 
@@ -41,13 +41,13 @@ Here's how everything works, once it's configured:
 4. The LaunchDaemon executes the script, which performs the following actions:
     1. The script runs `softwareupdate --list` to determine if any updates are required (determined by whether the update is labeled as recommended and/or requiring a restart). If no such updates are found, the script and LaunchDaemon self-destruct.
     2. If a required update is found, the script runs `softwareupdate --download --all` or `softwareupdate --download --recommended` to cache all available recommended Apple updates in the background (`--all` if a restart is required for any updates, `--recommended` if not).
-    3. An onscreen message appears, indicating the new updates are required to be installed. Two options are given: __Run Updates__ or __Defer__.
+    3. An onscreen message appears, indicating the new updates are required to be installed. Two options are given: __Install__ or __Defer__.
 
         (Note: your company logo will appear in place of the Software Update icon, if you specify the `LOGO` path.)
 
         ![Install or Defer](img/install-or-defer.png)
     4. If the user clicks __Defer__, the prompt will be dismissed. The next prompt will reappear after 4 hours by default (this is customizable). Users can continue to defer the prompt each time it appears for up to 72 hours (also customizable).
-    5. When the user clicks __Run Updates__, the script runs the cached software updates.
+    5. When the user clicks __Install__, the script runs the cached software updates.
 5. If the deferral deadline passes, the script behaves differently:
     1. The user sees a non-dismissible prompt asking them to run updates immediately.
         ![Run Updates Now](img/run-updates-now.png)
@@ -167,6 +167,10 @@ The above messages use the following dynamic substitutions:
 - `HARD_RESTART_DELAY`
 
     The number of seconds to wait between attempting a soft restart and forcing a restart.
+
+- `WORKDAY_START_HR` and `WORKDAY_END_HR`
+
+    (optional) The hours that a workday starts and ends in your organization. These values must each be an integer between 0 and 23, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday. If you want to use this functionality, uncomment both variables and set your desired values.
 
 
 ### Installer creation
@@ -300,7 +304,7 @@ Create a policy with the following criteria:
     ```
 
 10. You should see the install/defer prompt appear again.
-11. Click __Run Updates__. As long as there are no apps with unsaved changes, the Mac will run updates in the background. You should see the following prompt appear onscreen:
+11. Click __Install__. As long as there are no apps with unsaved changes, the Mac will run updates in the background. You should see the following prompt appear onscreen:
     ![Running Updates](img/running-updates.png)
     - If you want to test the "hard" restart feature of this framework, open Terminal and type `top` before the updates finish running. Then wait 5 minutes after "soft" restart attempt, and confirm that the Mac restarts successfully.
 12. After updates are installed and (optionally) the Mac is successfully restarted, you should not see any more onscreen messages.
