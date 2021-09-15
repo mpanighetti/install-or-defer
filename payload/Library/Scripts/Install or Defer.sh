@@ -14,8 +14,8 @@
 #                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2021-07-22
-#         Version:  4.1.4
+#   Last Modified:  2021-09-15
+#         Version:  4.1.5
 #
 ###
 
@@ -547,10 +547,10 @@ if (( DEFER_TIME_LEFT > 0 )); then
         MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER// 1 hours/ 1 hour}"
     # If time left is more than 1 minute, use minutes
     elif (( DEFER_TIME_LEFT > 60 )); then
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%DEFER_HOURS% hours/$(( DEFER_TIME_LEFT / 60 )) minutes}"
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%DEFER_HOURS%/$(( DEFER_TIME_LEFT / 60 )) minutes}"
         MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER// 1 minutes/ 1 minute}"
     else
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//after %DEFER_HOURS% hours/very soon}"
+        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//after %DEFER_HOURS%/very soon}"
     fi
 
     # Substitute the deadline date.
