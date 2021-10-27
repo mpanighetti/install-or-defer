@@ -14,8 +14,8 @@
 #                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2021-09-15
-#         Version:  4.1.5
+#   Last Modified:  2021-10-26
+#         Version:  4.1.6
 #
 ###
 
@@ -42,7 +42,7 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 ################################## MESSAGING ##################################
 
 # The label of the install button.
-INSTALL_BUTTON="Update"
+INSTALL_BUTTON="Install"
 
 # The label of the defer button.
 DEFER_BUTTON="Defer"
@@ -64,7 +64,7 @@ DEFER_BUTTON="Defer"
 MSG_ACT_OR_DEFER_HEADING="Updates are available"
 MSG_ACT_OR_DEFER="Your Mac needs to run updates for %UPDATE_LIST% by %DEADLINE_DATE%.
 
-Please save your work, quit any of the above applications, and click ${INSTALL_BUTTON}. {{If now is not a good time, you may defer this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they run>>.
+Please save your work, quit any of the above applications, and click ${INSTALL_BUTTON}. {{If now is not a good time, you may click ${DEFER_BUTTON} to delay this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they run>>.
 
 Please contact IT for any questions."
 
@@ -173,9 +173,18 @@ check_for_updates () {
 
     # Capture update names and versions.
     if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 15 ]]; then
-      UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[\(\)]' '/recommended/ {print $1 $2}')"
+        UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[\(\)]' '/recommended/ {print $1 $2}')"
     else
-      UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2 $4}')"
+        # Omit the Version column if the update list includes a "macOS" update,
+        # as those updates tend to already include version information in the
+        # Title column.
+        # Note that this will omit version strings from any other pending
+        # updates, e.g. Safari.
+        if echo "$UPDATE_CHECK" | /usr/bin/grep -q "macOS"; then
+            UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2}')"
+        else
+            UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2 $4}')"
+        fi
     fi
     # Convert update list from multiline to comma-separated list.
     UPDATE_LIST="$(echo "$UPDATE_LIST" | /usr/bin/tr '\n' ',' | /usr/bin/sed 's/^ *//; s/,/, /g; s/, $//')"
@@ -232,6 +241,10 @@ run_updates () {
         # recommended updates.
         while [[ $(/usr/sbin/softwareupdate --list) == *"Recommended: YES"* ]]; do
 
+            # Clear out jamfHelper alert to prevent pileups.
+            echo "Killing any active jamfHelper notifications..."
+            /usr/bin/killall jamfHelper 2>"/dev/null"
+
             # Display persistent HUD with update prompt message.
             echo "Prompting to install updates now and opening System Preferences -> Software Update..."
             "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_NOW_HEADING" -description "$MSG_ACT_NOW" -lockHUD &
@@ -244,10 +257,6 @@ run_updates () {
             # Leave the alert up for 60 seconds before looping.
             sleep 60
 
-            # Clear out jamfHelper alert before looping to prevent pileups.
-            echo "Killing any active jamfHelper notifications..."
-            /usr/bin/killall jamfHelper 2>"/dev/null"
-
         done
 
     else
@@ -259,7 +268,7 @@ run_updates () {
         echo "Running $INSTALL_WHICH Apple system updates..."
         # macOS Big Sur requires triggering the restart as part of the softwareupdate action, meaning the script will not be able to run its clean_up functions until the next time it is run.
         if [[ "$OS_MAJOR" -gt 10 ]] && [[ "$INSTALL_WHICH" = "all" ]]; then
-          echo "System will restart as soon as the update is finished. Cleanup tasks will run on a subsequent update check."
+            echo "System will restart as soon as the update is finished. Cleanup tasks will run on a subsequent update check."
         fi
         # shellcheck disable=SC2086
         UPDATE_OUTPUT_CAPTURE="$(/usr/sbin/softwareupdate --install --${INSTALL_WHICH} ${RESTART_FLAG} --no-scan 2>&1)"
@@ -627,7 +636,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
     elif [[ -z $PROMPT ]]; then # $PROMPT is not defined
         # Kill the jamfHelper prompt.
         kill -9 $JAMFHELPER_PID
-        echo "❌ ERROR: jamfHelper returned no value ${PROMPT_ELAPSED_STR}. ${INSTALL_BUTTON}/${DEFER_BUTTON} response was not captured. This may be because the user logged out without clicking ${INSTALL_BUTTON}/${DEFER_BUTTON}."
+        echo "❌ ERROR: jamfHelper returned no value ${PROMPT_ELAPSED_STR}. ${INSTALL_BUTTON}/${DEFER_BUTTON} response was not captured. This may be because the user logged out without clicking ${INSTALL_BUTTON} or ${DEFER_BUTTON}."
         exit 1
     else
         # Kill the jamfHelper prompt.
