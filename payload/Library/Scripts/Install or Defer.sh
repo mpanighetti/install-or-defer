@@ -14,8 +14,8 @@
 #                   the system restarts automatically.
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2021-10-26
-#         Version:  4.1.6
+#   Last Modified:  2021-12-08
+#         Version:  4.1.7
 #
 ###
 
@@ -201,13 +201,6 @@ check_for_updates () {
     MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
     MSG_ACT_NOW="$(echo "$MSG_ACT_NOW" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
     MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
-
-    # Download updates for Intel Macs (all updates if a restart is required for
-    # any, otherwise just recommended updates).
-    if [[ "$PLATFORM_ARCH" = "i386" ]]; then
-        echo "Caching $INSTALL_WHICH system updates..."
-        /usr/sbin/softwareupdate --download --$INSTALL_WHICH --no-scan
-    fi
 
 }
 
@@ -502,7 +495,7 @@ else
 fi
 echo "Maximum deferral time: $(convert_seconds "$MAX_DEFERRAL_TIME")"
 
-# Check for updates, exit if none found, otherwise cache locally and continue.
+# Check for updates, exit if none found, otherwise continue.
 check_for_updates
 
 # Perform first run tasks, including calculating deadline.

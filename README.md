@@ -38,18 +38,17 @@ Here's how everything works, once it's configured:
 3. The policy installs a package that places a LaunchDaemon and a script.
 4. The LaunchDaemon executes the script, which performs the following actions:
     1. The script runs `softwareupdate --list` to determine if any updates are required (determined by whether the update is labeled as recommended and/or requiring a restart). If no such updates are found, the script and LaunchDaemon self-destruct.
-    2. If a required update is found, the script runs `softwareupdate --download --all` or `softwareupdate --download --recommended` to cache all available recommended Apple updates in the background (`--all` if a restart is required for any updates, `--recommended` if not).
-    3. An onscreen message appears, indicating the new updates are required to be installed. Two options are given: __Install__ or __Defer__.
+    2. If a required update is found, an onscreen message appears, listing the new updates that are required to be installed. Two options are given: __Install__ or __Defer__.
 
         (Note: your company logo will appear in place of the Software Update icon, if you specify the `LOGO` path.)
 
         ![Install or Defer](img/install-or-defer.png)
-    4. If the user clicks __Defer__, the prompt will be dismissed. The next prompt will reappear after 4 hours by default (this is customizable). Users can continue to defer the prompt each time it appears for up to 72 hours (also customizable).
-    5. When the user clicks __Install__, the script runs the cached software updates.
+    3. If the user clicks __Defer__, the prompt will be dismissed. The next prompt will reappear after 4 hours by default (this is customizable). Users can continue to defer the prompt each time it appears for up to 72 hours (also customizable).
+    4. When the user clicks __Install__, the script runs software updates.
 5. If the deferral deadline passes, the script behaves differently:
     1. The user sees a non-dismissible prompt asking them to run updates immediately.
         ![Run Updates Now](img/run-updates-now.png)
-    2. If the user ignores the update prompt for 10 minutes, the script applies the cached updates in the background.
+    2. If the user ignores the update prompt for 10 minutes, the script applies software updates in the background.
 6. After the updates are done installing, if a restart is required:
     1. A "soft" restart is attempted.
     2. 5 minutes after the "soft" restart attempt, if the user still has not restarted (or if unsaved work prevents the "soft" restart from occurring), the script forces a restart to occur.
@@ -264,7 +263,6 @@ Create a policy with the following criteria:
     default	16:21:10.024080 -0700	logger	Deferral deadline: 2020-04-05 16:21:09
     default	16:21:10.026087 -0700	logger	Time remaining: 71h:59m:59s
     default	16:21:10.044935 -0700	logger	Checking for pending system updates...
-    default	16:21:20.041968 -0700	logger	Caching all system updates...
     default	16:21:39.218631 -0700	logger	Software Update Tool
     default	16:21:39.218681 -0700	logger
     default	16:21:39.218704 -0700	logger	Finding available software
