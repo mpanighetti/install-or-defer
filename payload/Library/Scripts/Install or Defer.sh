@@ -12,10 +12,11 @@
 #                   of time, the update will be forced on Intel Macs, and if
 #                   updates requiring a restart were found in that update check,
 #                   the system restarts automatically.
+#                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2021-12-08
-#         Version:  4.1.7
+#   Last Modified:  2022-01-27
+#         Version:  4.1.8
 #
 ###
 
@@ -136,10 +137,21 @@ convert_seconds () {
 
 }
 
+# Force-restarts the com.apple.softwareupdated service. Necessary to make
+# repeated update checks more reliable in macOS Big Sur and later.
+kickstart_softwareupdated () {
+
+    echo "Kickstarting com.apple.softwareupdated..."
+    /bin/launchctl kickstart -k system/com.apple.softwareupdated
+    sleep 60
+
+}
+
 # Checks for recommended macOS updates, or exits if no such updates are
 # available.
 check_for_updates () {
 
+    kickstart_softwareupdated
     echo "Checking for pending system updates..."
     UPDATE_CHECK=$(/usr/sbin/softwareupdate --list 2>&1)
 
@@ -247,8 +259,9 @@ run_updates () {
             USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
             /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
 
-            # Leave the alert up for 60 seconds before looping.
-            sleep 60
+            # Kickstart com.apple.softwareupdated and sleep before checking for
+            # updates again.
+            kickstart_softwareupdated
 
         done
 
@@ -258,8 +271,11 @@ run_updates () {
         "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
 
         # Run Apple system updates.
+        kickstart_softwareupdated
         echo "Running $INSTALL_WHICH Apple system updates..."
-        # macOS Big Sur requires triggering the restart as part of the softwareupdate action, meaning the script will not be able to run its clean_up functions until the next time it is run.
+        # macOS Big Sur requires triggering the restart as part of the
+        # softwareupdate action, meaning the script will not be able to run its
+        # clean_up functions until the next time it is run.
         if [[ "$OS_MAJOR" -gt 10 ]] && [[ "$INSTALL_WHICH" = "all" ]]; then
             echo "System will restart as soon as the update is finished. Cleanup tasks will run on a subsequent update check."
         fi
@@ -375,7 +391,8 @@ echo "Starting $(/usr/bin/basename "$0"). Performing validation and error checki
 # Define custom $PATH.
 PATH="/usr/sbin:/usr/bin:/usr/local/bin:${PATH}"
 
-# Filename and path we will use for the auto-generated helper script and LaunchDaemon.
+# Filename and path we will use for the auto-generated helper script and
+# LaunchDaemon.
 HELPER_SCRIPT="/Library/Scripts/$(/usr/bin/basename "$0" | /usr/bin/sed "s/.sh$//g")_helper.sh"
 HELPER_LD="/Library/LaunchDaemons/${BUNDLE_ID}_helper.plist"
 
