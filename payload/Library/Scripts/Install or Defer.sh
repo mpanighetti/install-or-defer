@@ -142,7 +142,7 @@ convert_seconds () {
 kickstart_softwareupdated () {
 
     echo "Kickstarting com.apple.softwareupdated..."
-    /bin/launchctl kickstart -k system/com.apple.softwareupdated
+    /bin/launchctl kickstart -k "system/com.apple.softwareupdated"
     sleep 60
 
 }
@@ -153,7 +153,7 @@ check_for_updates () {
 
     kickstart_softwareupdated
     echo "Checking for pending system updates..."
-    UPDATE_CHECK=$(/usr/sbin/softwareupdate --list 2>&1)
+    UPDATE_CHECK="$(/usr/sbin/softwareupdate --list 2>&1)"
 
     # Determine whether any recommended macOS updates are available.
     # If a restart is required for any pending updates, then run all available
@@ -272,7 +272,7 @@ run_updates () {
 
         # Run Apple system updates.
         kickstart_softwareupdated
-        echo "Running $INSTALL_WHICH Apple system updates..."
+        echo "Running ${INSTALL_WHICH} Apple system updates..."
         # macOS Big Sur requires triggering the restart as part of the
         # softwareupdate action, meaning the script will not be able to run its
         # clean_up functions until the next time it is run.
@@ -280,7 +280,7 @@ run_updates () {
             echo "System will restart as soon as the update is finished. Cleanup tasks will run on a subsequent update check."
         fi
         # shellcheck disable=SC2086
-        UPDATE_OUTPUT_CAPTURE="$(/usr/sbin/softwareupdate --install --${INSTALL_WHICH} ${RESTART_FLAG} --no-scan 2>&1)"
+        UPDATE_OUTPUT_CAPTURE="$(/usr/sbin/softwareupdate --install --"${INSTALL_WHICH}" ${RESTART_FLAG} --no-scan 2>&1)"
         echo "Finished running Apple updates."
 
         # Trigger restart if script found an update which requires it.
@@ -397,20 +397,20 @@ HELPER_SCRIPT="/Library/Scripts/$(/usr/bin/basename "$0" | /usr/bin/sed "s/.sh$/
 HELPER_LD="/Library/LaunchDaemons/${BUNDLE_ID}_helper.plist"
 
 # Flag variable for catching show-stopping errors.
-BAILOUT=false
+BAILOUT="false"
 
 # Bail out if the jamfHelper doesn't exist.
 JAMFHELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
 if [[ ! -x "$JAMFHELPER" ]]; then
     echo "❌ ERROR: The jamfHelper binary must be present in order to run this script."
-    BAILOUT=true
+    BAILOUT="true"
 fi
 
 # Bail out if the jamf binary doesn't exist.
 JAMF_BINARY="/usr/local/bin/jamf"
 if [[ ! -e "$JAMF_BINARY" ]]; then
     echo "❌ ERROR: The jamf binary could not be found."
-    BAILOUT=true
+    BAILOUT="true"
 fi
 
 # Determine macOS version.
@@ -423,7 +423,7 @@ OS_MINOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $2}')
 # the script has been tested successfully.
 if [[ "$OS_MAJOR" -lt 10 ]] || [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 13 ]] || [[ "$OS_MAJOR" -gt 11 ]]; then
     echo "❌ ERROR: This script supports macOS 10.13+ and macOS 11, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
-    BAILOUT=true
+    BAILOUT="true"
 fi
 
 # Determine platform architecture.
@@ -438,20 +438,20 @@ if nc -zw1 swscan.apple.com 443; then
         if [[ "$SU_CATALOG" != "None" ]]; then
             if /usr/bin/curl --user-agent "Darwin/$(/usr/bin/uname -r)" -s --head "$SU_CATALOG" | /usr/bin/grep "200 OK" >"/dev/null"; then
                 echo "❌ ERROR: Software update catalog can not be reached."
-                BAILOUT=true
+                BAILOUT="true"
             fi
         fi
     fi
 else
     echo "❌ ERROR: No connection to the Internet."
-    BAILOUT=true
+    BAILOUT="true"
 fi
 
 # If FileVault encryption or decryption is in progress, installing updates that
 # require a restart can cause problems.
 if /usr/bin/fdesetup status | /usr/bin/grep -q "in progress"; then
     echo "❌ ERROR: FileVault encryption or decryption is in progress."
-    BAILOUT=true
+    BAILOUT="true"
 fi
 
 # Validate workday start and end hours (if defined).
@@ -460,7 +460,7 @@ if [[ -n "$WORKDAY_START_HR" ]] && [[ -n "$WORKDAY_END_HR" ]]; then
         echo "Workday: ${WORKDAY_START_HR}:00-${WORKDAY_END_HR}:00"
     else
         echo "❌ ERROR: There is a logical disconnect between the workday start hour (${WORKDAY_START_HR}) and end hour (${WORKDAY_END_HR}). Please update these values to meet script requirements (start hour ≥ 0, start hour < end hour, end hour < 24)."
-        BAILOUT=true
+        BAILOUT="true"
     fi
 fi
 
@@ -517,7 +517,7 @@ check_for_updates
 
 # Perform first run tasks, including calculating deadline.
 FORCE_DATE=$(/usr/bin/defaults read "$PLIST" UpdatesForcedAfter 2>"/dev/null")
-if [[ -z $FORCE_DATE || $FORCE_DATE -gt $(( $(/bin/date +%s) + MAX_DEFERRAL_TIME )) ]]; then
+if [[ -z "$FORCE_DATE" || "$FORCE_DATE" -gt $(( $(/bin/date +%s) + MAX_DEFERRAL_TIME )) ]]; then
     FORCE_DATE=$(( $(/bin/date +%s) + MAX_DEFERRAL_TIME ))
     /usr/bin/defaults write "$PLIST" UpdatesForcedAfter -int "$FORCE_DATE"
 fi
@@ -537,7 +537,7 @@ fi
 # Calculate how much time remains until deferral deadline.
 DEFER_TIME_LEFT=$(( FORCE_DATE - $(/bin/date +%s) ))
 echo "Deferral deadline: $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$FORCE_DATE")"
-echo "Time remaining: $(convert_seconds $DEFER_TIME_LEFT)"
+echo "Time remaining: $(convert_seconds "$DEFER_TIME_LEFT")"
 
 # Get the "deferred until" timestamp, if one exists.
 DEFERRED_UNTIL=$(/usr/bin/defaults read "$PLIST" UpdatesDeferredUntil 2>"/dev/null")
@@ -588,18 +588,18 @@ if (( DEFER_TIME_LEFT > 0 )); then
     # Show the install/defer prompt.
     echo "Prompting to install updates now or defer..."
     PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_OR_DEFER_HEADING" -description "$MSG_ACT_OR_DEFER" -button1 "$INSTALL_BUTTON" -button2 "$DEFER_BUTTON" -defaultButton 2 -timeout 3600 -startlaunchd 2>"/dev/null")
-    JAMFHELPER_PID=$!
+    JAMFHELPER_PID="$!"
 
     # Make a note of the amount of time the prompt was shown onscreen.
     PROMPT_END=$(/bin/date +%s)
     PROMPT_ELAPSED_SEC=$(( PROMPT_END - PROMPT_START ))
 
     # Generate a duration string that will be used in log output.
-    if [[ -n $PROMPT_ELAPSED_SEC && $PROMPT_ELAPSED_SEC -eq 0 ]]; then
+    if [[ -n "$PROMPT_ELAPSED_SEC" && "$PROMPT_ELAPSED_SEC" -eq 0 ]]; then
         PROMPT_ELAPSED_STR="immediately"
-    elif [[ -n $PROMPT_ELAPSED_SEC ]]; then
+    elif [[ -n "$PROMPT_ELAPSED_SEC" ]]; then
         PROMPT_ELAPSED_STR="after $(convert_seconds "$PROMPT_ELAPSED_SEC")"
-    elif [[ -z $PROMPT_ELAPSED_SEC ]]; then
+    else
         PROMPT_ELAPSED_STR="after an unknown amount of time"
         echo "[WARNING] Unable to determine elapsed time between prompt and action."
     fi
@@ -608,21 +608,21 @@ if (( DEFER_TIME_LEFT > 0 )); then
     # https://gist.github.com/homebysix/18c1a07a284089e7f279#file-jamfhelper_help-txt-L72-L84
 
     # Take action based on the return code of the jamfHelper.
-    if [[ -n $PROMPT && $PROMPT_ELAPSED_SEC -eq 0 ]]; then
+    if [[ -n "$PROMPT" && "$PROMPT_ELAPSED_SEC" -eq 0 ]]; then
         # Kill the jamfHelper prompt.
-        kill -9 $JAMFHELPER_PID
+        kill -9 "$JAMFHELPER_PID"
         echo "❌ ERROR: jamfHelper returned code ${PROMPT} ${PROMPT_ELAPSED_STR}. It's unlikely that the user responded that quickly."
         exit 1
-    elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 0 ]]; then
+    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 0 ]]; then
         echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}."
         /usr/bin/defaults delete "$PLIST" UpdatesDeferredUntil 2>"/dev/null"
         run_updates
-    elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 1 ]]; then
+    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 1 ]]; then
         # Kill the jamfHelper prompt.
-        kill -9 $JAMFHELPER_PID
+        kill -9 "$JAMFHELPER_PID"
         echo "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
         exit 1
-    elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 2 ]]; then
+    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 2 ]]; then
         echo "User clicked ${DEFER_BUTTON} ${PROMPT_ELAPSED_STR}."
         NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
         if (( FORCE_DATE < NEXT_PROMPT )); then
@@ -630,7 +630,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
         fi
         /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
         echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
-    elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -eq 239 ]]; then
+    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 239 ]]; then
         echo "User deferred by exiting jamfHelper ${PROMPT_ELAPSED_STR}."
         NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
         if (( FORCE_DATE < NEXT_PROMPT )); then
@@ -638,19 +638,19 @@ if (( DEFER_TIME_LEFT > 0 )); then
         fi
         /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
         echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
-    elif [[ -n $PROMPT && $DEFER_TIME_LEFT -gt 0 && $PROMPT -gt 2 ]]; then
+    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -gt 2 ]]; then
         # Kill the jamfHelper prompt.
-        kill -9 $JAMFHELPER_PID
+        kill -9 "$JAMFHELPER_PID"
         echo "❌ ERROR: jamfHelper produced an unexpected value (code ${PROMPT}) ${PROMPT_ELAPSED_STR}."
         exit 1
-    elif [[ -z $PROMPT ]]; then # $PROMPT is not defined
+    elif [[ -z "$PROMPT" ]]; then # $PROMPT is not defined
         # Kill the jamfHelper prompt.
-        kill -9 $JAMFHELPER_PID
+        kill -9 "$JAMFHELPER_PID"
         echo "❌ ERROR: jamfHelper returned no value ${PROMPT_ELAPSED_STR}. ${INSTALL_BUTTON}/${DEFER_BUTTON} response was not captured. This may be because the user logged out without clicking ${INSTALL_BUTTON} or ${DEFER_BUTTON}."
         exit 1
     else
         # Kill the jamfHelper prompt.
-        kill -9 $JAMFHELPER_PID
+        kill -9 "$JAMFHELPER_PID"
         echo "❌ ERROR: Something went wrong. Check the jamfHelper return code (${PROMPT}) and prompt elapsed seconds (${PROMPT_ELAPSED_SEC}) for further information."
         exit 1
     fi
