@@ -71,13 +71,29 @@ This framework is designed to work "out of the box" without any modification, bu
 
 You can customize some values using a configuration profile targeting the `$BUNDLE_ID` preference domain. This allows you to apply different configurations to different groups of Macs (e.g. a dedicated test group could have shorter deferral times), and lets you make changes to these settings on the fly without repackaging and redeploying the script. The following keys can be defined via configuration profile:
 
+- `DeferButtonLabel`
+
+    **String**. The label of the defer button. Defaults to "Defer".
+
+- `InstallButtonLabel`
+
+    **String**. The label of the install button. Defaults to "Install".
+
 - `MaxDeferralTime`
 
     **Integer**. Number of seconds between the first script run and the updates being enforced. Defaults to `259200` (3 days).
 
+- `MessagingLogo`
+
+    **String**. File path to a logo that will be used in messaging. Recommend 512px, PNG format. Defaults to the Software Update icon.
+
 - `SkipDeferral`
 
     **Boolean**. Whether to bypass deferral time entirely and skip straight to update enforcement (useful for script testing purposes). Defaults to `false`.
+
+- `WorkdayStartHour` and `WorkdayEndHour`
+
+    **Integers**. (optional) The hours that a workday starts and ends in your organization. These values must each be an integer between 0 and 23, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday.
 
 ### Script variables
 
@@ -89,10 +105,6 @@ There are several settings in the script that can be customized by changing defa
 
     Path to a plist file that is used to store settings locally. Omit ".plist" extension.
 
-- `LOGO`
-
-    (Optional) Path to a logo that will be used in messaging. Recommend 512px, PNG format. If no logo is provided, the Software Update icon will be used (as shown in the example screenshots in this README).
-
 - `BUNDLE_ID`
 
     The identifier of the LaunchDaemon that is used to call this script, which should match the file in the __payload/Library/LaunchDaemons__ folder. Omit ".plist" extension.
@@ -102,14 +114,6 @@ There are several settings in the script that can be customized by changing defa
     The file path of the `Install or Defer.sh` script. Used in the script to assist with resource file clean-up.
 
 #### Messaging
-
-- `INSTALL_BUTTON`
-
-    The label of the install button.
-
-- `DEFER_BUTTON`
-
-    The label of the defer button.
 
 - `MSG_ACT_OR_DEFER_HEADING`
 
@@ -164,10 +168,6 @@ The above messages use the following dynamic substitutions:
 - `HARD_RESTART_DELAY`
 
     The number of seconds to wait between attempting a soft restart and forcing a restart.
-
-- `WORKDAY_START_HR` and `WORKDAY_END_HR`
-
-    (optional) The hours that a workday starts and ends in your organization. These values must each be an integer between 0 and 23, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday. If you want to use this functionality, uncomment both variables and set your desired values.
 
 
 ### Installer creation
@@ -322,9 +322,9 @@ Once the Testing steps above have been followed, there are only a few steps rema
 
 If major problems are detected with the update prompt or installation workflow, disable the __Install or Defer__ policy. This will prevent computers from being newly prompted for installation of updates.
 
-Note that any computers which have already received the framework push will continue through the motions of alerting, deferring, updating, and restarting. If you need to remove the framework from your fleet and stop it from running, you could write an uninstall script using the preinstall script as a foundation (it would basically just need to unload the LaunchDaemons and remove the resource files).
+Note that any computers which have already received the framework push will continue through the motions of alerting, deferring, updating, and restarting. If you need to remove the framework from your fleet and stop it from running, you could write an uninstall script using the `preinstall` script as a foundation (it would basically just need to unload the LaunchDaemons and remove the resource files).
 
-Once the script is debugged and updated, you can generate a new installer package, upload the package to the Jamf Pro server, link it to the policy, and re-enable the policy. The preinstall script will remove any existing resources and replace them with your modified files.
+Once the script is debugged and updated, you can generate a new installer package, upload the package to the Jamf Pro server, link it to the policy, and re-enable the policy. The `preinstall` script will remove any existing resources and replace them with your modified files.
 
 
 ## Troubleshooting
@@ -341,10 +341,9 @@ sudo chmod 644 /path/to/install-or-defer/payload/Library/LaunchDaemons/com.githu
 
 ## Miscellaneous Notes
 
-- Feel free to change the `com.github.mpanighetti` bundle identifier to match your company instead. If you do this, make sure to update the filenames of the LaunchDaemons, their corresponding file paths in the preinstall and postinstall scripts, and the `$BUNDLE_ID` variable in the script.
-- You can specify a different default logo if you'd rather not use the Software Update icon (e.g. corporate branding). `jamfHelper` supports .icns and .png files.
+- Feel free to change the `com.github.mpanighetti` bundle identifier to match your company instead. If you do this, make sure to update the filenames of the LaunchDaemons, their corresponding file paths in the `preinstall` and `postinstall` scripts, the `$BUNDLE_ID` variable in the script, and the bundle identifier used for settings enforced via configuration profile.
 - If you encounter any issues or have questions, please open an issue on this GitHub repo.
 
 Enjoy!
 
-<a name="footnote1"><sup>1</sup></a> This example frequency assumes you're using the default deferral period of 72 hours. If you've set a custom deferral period, it is recommended that your policy runs less frequently than the maximum deferral time, so that your Macs have the chance to defer, timeout, and apply the updates before the policy attempts to run again (since the preinstall script will reset `UpdatesDeferredUntil` and `UpdatesForcedAfter`).
+<a name="footnote1"><sup>1</sup></a> This example frequency assumes you're using the default deferral period of 72 hours. If you've set a custom deferral period, it is recommended that your policy runs less frequently than the maximum deferral time, so that your Macs have the chance to defer, timeout, and apply the updates before the policy attempts to run again (since the `preinstall` script will reset `UpdatesDeferredUntil` and `UpdatesForcedAfter`).
