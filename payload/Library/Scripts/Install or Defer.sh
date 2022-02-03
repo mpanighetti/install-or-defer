@@ -15,7 +15,7 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-01-31
+#   Last Modified:  2022-02-03
 #         Version:  5.0
 #
 ###
@@ -103,6 +103,9 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # "Install".
 # - DeferButtonLabel (String). The label of the defer button. Defaults to
 # "Defer".
+# - DiagnosticLog (Boolean). Whether to write to a persistent log at
+# /var/log/install-or-defer.log. Defaults to False, instead writing all output
+# to the system log for live diagnostics.
 # - MaxDeferralTime (Integer). Number of seconds between the first script run
 # and the updates being enforced. Defaults to 259200 (3 days).
 # - MessagingLogo (String). File path to a logo that will be used in messaging.
@@ -121,6 +124,7 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # - WorkdayEndHour (Integer). The hour that a workday ends in your organization.
 
 DEFER_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DeferButtonLabel 2>"/dev/null")
+DIAGNOSTIC_LOG_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DiagnosticLog 2>"/dev/null")
 INSTALL_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" InstallButtonLabel 2>"/dev/null")
 MAX_DEFERRAL_TIME_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MaxDeferralTime 2>"/dev/null")
 MESSAGING_LOGO_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MessagingLogo 2>"/dev/null")
@@ -399,8 +403,13 @@ exit_without_updating () {
 
 ######################## VALIDATION AND ERROR CHECKING ########################
 
-# Copy all output to the system log for diagnostic purposes.
-exec 1> >(/usr/bin/logger -s -t "$(/usr/bin/basename "$0")") 2>&1
+# Checks for a custom diagnostic log preference,
+# otherwise defaults to copying all output to the system log.
+if [ "$DIAGNOSTIC_LOG_CUSTOM" -eq 1 ]; then
+    exec 1>"/var/log/install-or-defer.log" 2>&1
+else
+    exec 1> >(/usr/bin/logger -s -t "$(/usr/bin/basename "$0")") 2>&1
+fi
 echo "Starting $(/usr/bin/basename "$0"). Performing validation and error checking..."
 
 # Define custom $PATH.

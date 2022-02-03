@@ -71,13 +71,13 @@ This framework is designed to work "out of the box" without any modification, bu
 
 You can customize some values using a configuration profile targeting the `$BUNDLE_ID` preference domain. This allows you to apply different configurations to different groups of Macs (e.g. a dedicated test group could have shorter deferral times), and lets you make changes to these settings on the fly without repackaging and redeploying the script. The following keys can be defined via configuration profile:
 
-- `DeferButtonLabel`
+- `InstallButtonLabel` and `DeferButtonLabel`
 
-    **String**. The label of the defer button. Defaults to "Defer".
+    **Strings**. The labels of the install and defer buttons. Default to "Install" and "Defer" respectively. Keep these strings short since `jamfHelper` will cut off longer labels.
 
-- `InstallButtonLabel`
+- `DiagnosticLog`
 
-    **String**. The label of the install button. Defaults to "Install".
+    **Boolean**. Whether to write to a persistent log file at `/var/log/install-or-defer.log`. Defaults to `false`, instead writing all output to the system log for live diagnostics.
 
 - `MaxDeferralTime`
 
