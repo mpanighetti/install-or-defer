@@ -12,11 +12,11 @@ remove_resource () {
             # remove the launchd task before file deletion.
             if /bin/launchctl list | /usr/bin/grep -q "$PLIST_LABEL"; then
                 /bin/launchctl remove "$PLIST_LABEL"
-                echo "Removed LaunchDaemon: $PLIST_LABEL"
+                echo "Removed LaunchDaemon: ${PLIST_LABEL}"
             fi
         fi
         /bin/rm -rf "$1"
-        echo "Deleted file: $1"
+        echo "Deleted file: ${1}"
     fi
 }
 
@@ -29,8 +29,8 @@ echo "Killing any active jamfHelper notifications..."
 
 # Remove all script resources (if present).
 echo "Removing existing script resources..."
-remove_resource "$3/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist"
-remove_resource "$3/Library/Preferences/com.github.mpanighetti.install-or-defer.plist"
-remove_resource "$3/Library/Scripts/Install or Defer.sh"
-remove_resource "$3/Library/Scripts/Install or Defer_helper.sh"
-remove_resource "$3/private/tmp/install-or-defer"
+remove_resource "${3}/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist"
+remove_resource "${3}/Library/Preferences/com.github.mpanighetti.install-or-defer.plist"
+remove_resource "${3}/Library/Scripts/Install or Defer.sh"
+remove_resource "${3}/Library/Scripts/Install or Defer_helper.sh"
+remove_resource "${3}/private/tmp/install-or-defer"
