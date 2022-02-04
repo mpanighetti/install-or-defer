@@ -40,14 +40,14 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 ################################## MESSAGING ##################################
 
 # The messages below use the following dynamic substitutions wherever found:
-#   - %UPDATE_LIST% will be automatically replaced with a comma-separated list
-#     of all recommended updates found in a Software Update check.
-#   - %DEFER_HOURS% will be automatically replaced by the number of days, hours,
-#     or minutes remaining in the deferral period.
 #   - %DEADLINE_DATE% will be automatically replaced with the deadline date and
 #     time before updates are enforced.
-#   - %SUPPORT_CONTACT% wil be automatically replaced with "IT" or a custom
+#   - %DEFER_HOURS% will be automatically replaced by the number of days, hours,
+#     or minutes remaining in the deferral period.
+#   - %SUPPORT_CONTACT% will be automatically replaced with "IT" or a custom
 #     value set via configuration profile key.
+#   - %UPDATE_LIST% will be automatically replaced with a comma-separated list
+#     of all recommended updates found in a Software Update check.
 #   - The section in the {{double curly brackets}} will be removed when this
 #     message is displayed for the final time before the deferral deadline.
 #   - The sections in the <<double comparison operators>> will be removed if a
