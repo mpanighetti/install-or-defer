@@ -29,11 +29,11 @@
 PLIST="/Library/Preferences/com.github.mpanighetti.install-or-defer"
 
 # The identifier of the LaunchDaemon that is used to call this script, which
-# should match the file in the payload/Library/LaunchDaemons folder. Omit
+# should match the file name in the payload/Library/LaunchDaemons folder. Omit
 # ".plist" extension.
 BUNDLE_ID="com.github.mpanighetti.install-or-defer"
 
-# The file path of this script.
+# The file path of this script. Used to assist with resource file clean-up.
 SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 
 

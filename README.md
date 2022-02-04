@@ -69,7 +69,7 @@ This framework is designed to work "out of the box" without any modification, bu
 
 ### Configuration profile
 
-You can customize some values using a configuration profile targeting the `$BUNDLE_ID` preference domain. This allows you to apply different configurations to different groups of Macs (e.g. a dedicated test group could have shorter deferral times), and lets you make changes to these settings on the fly without repackaging and redeploying the script. The following keys can be defined via configuration profile:
+You can customize many settings using a configuration profile targeting the `$BUNDLE_ID` preference domain. This allows you to apply different configurations to different groups of Macs (e.g. a dedicated test group could have shorter deferral times), and lets you make changes to these settings on the fly without repackaging and redeploying the script. The following settings can be defined via configuration profile keys:
 
 - `InstallButtonLabel` and `DeferButtonLabel`
 
@@ -111,7 +111,7 @@ There are several settings in the script that can be customized by changing defa
 
 - `BUNDLE_ID`
 
-    The identifier of the LaunchDaemon that is used to call this script, which should match the file in the __payload/Library/LaunchDaemons__ folder. Omit ".plist" extension.
+    The identifier of the LaunchDaemon that is used to call the `Install or Defer.sh` script, which should match the file name in the __payload/Library/LaunchDaemons__ folder. Omit ".plist" extension.
 
 - `SCRIPT_PATH`
 
