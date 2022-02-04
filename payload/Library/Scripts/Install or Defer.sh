@@ -88,6 +88,10 @@ MSG_UPDATING="Installing updates for %UPDATE_LIST% in the background.<< Your Mac
 # When the user clicks "Defer" the next prompt is delayed by this much time.
 EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
 
+# Number of seconds to wait before timing out each Install or Defer prompt.
+# This value should be less than the $EACH_DEFER value.
+PROMPT_TIMEOUT=$(( 60 * 60 )) # (3600 = 1 hour)
+
 # The number of seconds to wait between displaying the "install updates" message
 # and applying updates, then attempting a soft restart.
 UPDATE_DELAY=$(( 60 * 10 )) # (600 = 10 minutes)
@@ -643,7 +647,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
     # Show the install/defer prompt.
     echo "Prompting to install updates now or defer..."
-    PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_INSTALL_OR_DEFER_HEADING" -description "$MSG_INSTALL_OR_DEFER" -button1 "$INSTALL_BUTTON" -button2 "$DEFER_BUTTON" -defaultButton 2 -timeout 3600 -startlaunchd 2>"/dev/null")
+    PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_INSTALL_OR_DEFER_HEADING" -description "$MSG_INSTALL_OR_DEFER" -button1 "$INSTALL_BUTTON" -button2 "$DEFER_BUTTON" -defaultButton 2 -timeout "$PROMPT_TIMEOUT" -startlaunchd 2>"/dev/null")
     JAMFHELPER_PID="$!"
 
     # Make a note of the amount of time the prompt was shown onscreen.
