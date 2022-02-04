@@ -88,8 +88,8 @@ MSG_UPDATING="Installing updates for %UPDATE_LIST% in the background.<< Your Mac
 # When the user clicks "Defer" the next prompt is delayed by this much time.
 EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
 
-# The number of seconds to wait before timing out each Install or Defer prompt.
-# This value should be less than the EACH_DEFER value.
+# Number of seconds to wait before timing out the Install or Defer prompt.
+# This value should be less than the $EACH_DEFER value.
 PROMPT_TIMEOUT=$(( 60 * 60 )) # (3600 = 1 hour)
 
 # The number of seconds to wait between displaying the "install updates" message
@@ -519,7 +519,7 @@ fi
 ################################ MAIN PROCESS #################################
 
 # Validate configuration profile-enforced settings or use script defaults accordingly.
-# Whether to use custom labels for the install/defer buttons (defaults to "Install" and "Defer").
+# Whether to use custom labels for the install/defer buttons (default to "Install" and "Defer").
 if [ -n "$INSTALL_BUTTON_CUSTOM" ]; then
     INSTALL_BUTTON="$INSTALL_BUTTON_CUSTOM"
 else
