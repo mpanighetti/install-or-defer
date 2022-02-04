@@ -64,7 +64,7 @@ Please contact %SUPPORT_CONTACT% for any questions."
 
 # The message users will receive after the deferral deadline has been reached.
 MSG_INSTALL_HEADING="Please install updates now"
-MSG_INSTALL="Your Mac is about to install updates for %UPDATE_LIST% << and restart>>.
+MSG_INSTALL="Your Mac is about to install updates for %UPDATE_LIST%<< and restart>>.
 
 Please save your work, quit any applications listed above, and install all available updates before the deadline.<< Your Mac will restart when all updates are finished installing.>>
 
@@ -72,7 +72,7 @@ Please contact %SUPPORT_CONTACT% for any questions."
 
 # The message users will receive when a manual update install action is required.
 MSG_INSTALL_NOW_HEADING="Updates are available"
-MSG_INSTALL_NOW="Your Mac needs to install updates for %UPDATE_LIST% << which require a restart>>.
+MSG_INSTALL_NOW="Your Mac needs to install updates for %UPDATE_LIST%<< which require a restart>>.
 
 Please save your work, quit any applications listed above, then open System Preferences -> Software Update and install all available updates.<< Your Mac will restart when all updates are finished installing.>>
 
@@ -176,7 +176,7 @@ kickstart_softwareupdated () {
 
     echo "Kickstarting com.apple.softwareupdated..."
     /bin/launchctl kickstart -k "system/com.apple.softwareupdated"
-    sleep 60
+    sleep "${1}"
 
 }
 
@@ -184,7 +184,7 @@ kickstart_softwareupdated () {
 # available.
 check_for_updates () {
 
-    kickstart_softwareupdated
+    kickstart_softwareupdated "60"
     echo "Checking for pending system updates..."
     UPDATE_CHECK="$(/usr/sbin/softwareupdate --list 2>&1)"
 
@@ -257,7 +257,7 @@ display_act_msg () {
     echo "Killing any active jamfHelper notifications..."
     /usr/bin/killall jamfHelper 2>"/dev/null"
     echo "Displaying \"install updates\" message for $(( UPDATE_DELAY / 60 )) minutes before automatically applying updates..."
-    "$JAMFHELPER" -windowType "utility" -windowPosition "ur" -title "$MSG_INSTALL_HEADING" -description "$MSG_INSTALL" -icon "$LOGO" -button1 "$INSTALL_BUTTON" -defaultButton 1 -alignCountdown "right" -timeout "$UPDATE_DELAY" -countdown >"/dev/null"
+    "$JAMFHELPER" -windowType "utility" -windowPosition "ur" -title "$MSG_INSTALL_HEADING" -description "$MSG_INSTALL" -icon "$MESSAGING_LOGO" -button1 "$INSTALL_BUTTON" -defaultButton 1 -alignCountdown "right" -timeout "$UPDATE_DELAY" -countdown >"/dev/null"
 
     # Install updates after either user confirmation or alert timeout.
     install_updates
@@ -285,26 +285,25 @@ install_updates () {
 
             # Display persistent HUD with update prompt message.
             echo "Prompting to install updates now and opening System Preferences -> Software Update..."
-            "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_INSTALL_NOW_HEADING" -description "$MSG_INSTALL_NOW" -lockHUD &
+            "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_NOW_HEADING" -description "$MSG_INSTALL_NOW" -lockHUD &
 
             # Open System Preferences - Software Update in current user context.
             CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
             USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
             /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
 
-            # Kickstart com.apple.softwareupdated and sleep before checking for
-            # updates again.
-            kickstart_softwareupdated
+            # Leave the alert up for 60 seconds before looping.
+            sleep 60
 
         done
 
     else
 
         # Display HUD with updating message.
-        "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
+        "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
 
         # Install Apple system updates.
-        kickstart_softwareupdated
+        kickstart_softwareupdated "60"
         echo "Installing ${INSTALL_WHICH} Apple system updates..."
         # macOS Big Sur requires triggering the restart as part of the
         # softwareupdate action, meaning the script will not be able to run its
@@ -420,7 +419,7 @@ exit_without_updating () {
 # Checks for a custom diagnostic log preference,
 # otherwise defaults to copying all output to the system log.
 if [ "$DIAGNOSTIC_LOG_CUSTOM" -eq 1 ]; then
-    exec 1>"/var/log/install-or-defer.log" 2>&1
+    exec 1>>"/var/log/install-or-defer.log" 2>&1
 else
     exec 1> >(/usr/bin/logger -s -t "$(/usr/bin/basename "$0")") 2>&1
 fi
@@ -537,7 +536,7 @@ fi
 echo "Defer button label: ${DEFER_BUTTON}"
 
 # Whether to skip deferral (default to false).
-if [ "$SKIP_DEFERRAL_CUSTOM" -eq 1 ]; then
+if [[ "$SKIP_DEFERRAL_CUSTOM" -eq 1 ]]; then
     MAX_DEFERRAL_TIME=0
 else
     # Check for a custom maximum deferral time, otherwise default to 3 days.
@@ -647,7 +646,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
     # Show the install/defer prompt.
     echo "Prompting to install updates now or defer..."
-    PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_INSTALL_OR_DEFER_HEADING" -description "$MSG_INSTALL_OR_DEFER" -button1 "$INSTALL_BUTTON" -button2 "$DEFER_BUTTON" -defaultButton 2 -timeout "$PROMPT_TIMEOUT" -startlaunchd 2>"/dev/null")
+    PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_OR_DEFER_HEADING" -description "$MSG_INSTALL_OR_DEFER" -button1 "$INSTALL_BUTTON" -button2 "$DEFER_BUTTON" -defaultButton 2 -timeout "$PROMPT_TIMEOUT" -startlaunchd 2>"/dev/null")
     JAMFHELPER_PID="$!"
 
     # Make a note of the amount of time the prompt was shown onscreen.
