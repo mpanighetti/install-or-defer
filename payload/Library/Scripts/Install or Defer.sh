@@ -44,8 +44,10 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 #     of all recommended updates found in a Software Update check.
 #   - %DEFER_HOURS% will be automatically replaced by the number of days, hours,
 #     or minutes remaining in the deferral period.
-#   - %DEADLINE_DATE% will be automatically replaced by the deadline date and
+#   - %DEADLINE_DATE% will be automatically replaced with the deadline date and
 #     time before updates are enforced.
+#   - %SUPPORT_CONTACT% wil be automatically replaced with "IT" or a custom
+#     value set via configuration profile key.
 #   - The section in the {{double curly brackets}} will be removed when this
 #     message is displayed for the final time before the deferral deadline.
 #   - The sections in the <<double comparison operators>> will be removed if a
@@ -53,30 +55,32 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 
 # The message users will receive when updates are available, shown above the
 # install and defer buttons.
-MSG_ACT_OR_DEFER_HEADING="Updates are available"
-MSG_ACT_OR_DEFER="Your Mac needs to run updates for %UPDATE_LIST% by %DEADLINE_DATE%.
+MSG_INSTALL_OR_DEFER_HEADING="Updates are available"
+MSG_INSTALL_OR_DEFER="Your Mac needs to run updates for %UPDATE_LIST% by %DEADLINE_DATE%.
 
 Please save your work, quit any applications listed above, and run all available updates. {{If now is not a good time, you may defer to delay this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they run>>.
 
-Please contact IT for any questions."
+Please contact %SUPPORT_CONTACT% for any questions."
 
 # The message users will receive after the deferral deadline has been reached.
-MSG_ACT_HEADING="Please run updates now"
-MSG_ACT="Your Mac is about to run updates for %UPDATE_LIST% << and restart>>.
+MSG_INSTALL_HEADING="Please run updates now"
+MSG_INSTALL="Your Mac is about to run updates for %UPDATE_LIST% << and restart>>.
 
 Please save your work, quit any applications listed above, and run all available updates before the deadline.<< Your Mac will restart when all updates are finished running.>>
 
-Please contact IT for any questions."
+Please contact %SUPPORT_CONTACT% for any questions."
 
 # The message users will receive when a manual update action is required.
-MSG_ACT_NOW_HEADING="Updates are available"
-MSG_ACT_NOW="Your Mac needs to run updates for %UPDATE_LIST% << which require a restart>>.
+MSG_INSTALL_NOW_HEADING="Updates are available"
+MSG_INSTALL_NOW="Your Mac needs to run updates for %UPDATE_LIST% << which require a restart>>.
 
-Please save your work, quit any applications listed above, then open System Preferences -> Software Update and run all available updates.<< Your Mac will restart when all updates are finished running.>>"
+Please save your work, quit any applications listed above, then open System Preferences -> Software Update and run all available updates.<< Your Mac will restart when all updates are finished running.>>
+
+Please contact %SUPPORT_CONTACT% for any questions."
 
 # The message users will receive while updates are running in the background.
 MSG_UPDATING_HEADING="Running updates..."
-MSG_UPDATING="Running updates for %UPDATE_LIST% in the background.<< Your Mac will restart automatically when this is finished.>>"
+MSG_UPDATING="Running updates for %UPDATE_LIST% in the background.<< Your Mac will restart automatically when this is finished.>> Please contact %SUPPORT_CONTACT% for any questions."
 
 
 #################################### TIMING ###################################
@@ -115,6 +119,10 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # straight to update enforcement (useful for script testing purposes). Defaults
 # to False. If set to True, this setting supersedes any values set for
 # MaxDeferralTime.
+# - SupportContact (String). Contact information for technical support included
+# in messaging alerts. Recommend using a team name (e.g. "Technical Support"),
+# email address (e.g. "support@contoso.com"), or chat channel
+# (e.g. "#technical-support"). Defaults to "IT".
 #
 # (optional) The hours that a workday starts and ends in your organization.
 # These values must each be an integer between 0 and 23, and the end hour must
@@ -130,6 +138,7 @@ INSTALL_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${B
 MAX_DEFERRAL_TIME_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MaxDeferralTime 2>"/dev/null")
 MESSAGING_LOGO_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MessagingLogo 2>"/dev/null")
 SKIP_DEFERRAL_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SkipDeferral 2>"/dev/null")
+SUPPORT_CONTACT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SupportContact 2>"/dev/null")
 WORKDAY_END_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayEndHour 2>"/dev/null")
 WORKDAY_START_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayStartHour 2>"/dev/null")
 
@@ -183,9 +192,9 @@ check_for_updates () {
         RESTART_FLAG="--restart"
         # Remove "<<" and ">>" but leave the text between
         # (retains restart warnings).
-        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
-        MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
-        MSG_ACT_NOW="$(echo "$MSG_ACT_NOW" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
+        MSG_INSTALL_OR_DEFER="$(echo "$MSG_INSTALL_OR_DEFER" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
+        MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
+        MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
     # Otherwise, only target recommended updates.
     elif [[ "$UPDATE_CHECK" =~ (Recommended: YES|\[recommended\]) ]]; then
@@ -193,9 +202,9 @@ check_for_updates () {
         RESTART_FLAG=""
         # Remove "<<" and ">>" including all the text between
         # (removes restart warnings).
-        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/\<\<.*\>\>//g')"
-        MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed 's/\<\<.*\>\>//g')"
-        MSG_ACT_NOW="$(echo "$MSG_ACT_NOW" | /usr/bin/sed 's/\<\<.*\>\>//g')"
+        MSG_INSTALL_OR_DEFER="$(echo "$MSG_INSTALL_OR_DEFER" | /usr/bin/sed 's/\<\<.*\>\>//g')"
+        MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed 's/\<\<.*\>\>//g')"
+        MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/\<\<.*\>\>//g')"
     # If no recommended updates need to be installed, bail out.
     else
@@ -229,9 +238,9 @@ check_for_updates () {
         UPDATE_LIST="$(echo "$UPDATE_LIST" | sed 's/\(.*\),/\1 and/')"
     fi
     # Populate the list of pending updates in message text.
-    MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
-    MSG_ACT="$(echo "$MSG_ACT" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
-    MSG_ACT_NOW="$(echo "$MSG_ACT_NOW" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
+    MSG_INSTALL_OR_DEFER="$(echo "$MSG_INSTALL_OR_DEFER" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
+    MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
+    MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
     MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
 
 }
@@ -244,7 +253,7 @@ display_act_msg () {
     echo "Killing any active jamfHelper notifications..."
     /usr/bin/killall jamfHelper 2>"/dev/null"
     echo "Displaying \"run updates\" message for $(( UPDATE_DELAY / 60 )) minutes before automatically applying updates..."
-    "$JAMFHELPER" -windowType "utility" -windowPosition "ur" -title "$MSG_ACT_HEADING" -description "$MSG_ACT" -icon "$LOGO" -button1 "$INSTALL_BUTTON" -defaultButton 1 -alignCountdown "right" -timeout "$UPDATE_DELAY" -countdown >"/dev/null"
+    "$JAMFHELPER" -windowType "utility" -windowPosition "ur" -title "$MSG_INSTALL_HEADING" -description "$MSG_INSTALL" -icon "$LOGO" -button1 "$INSTALL_BUTTON" -defaultButton 1 -alignCountdown "right" -timeout "$UPDATE_DELAY" -countdown >"/dev/null"
 
     # Run updates after either user confirmation or alert timeout.
     run_updates
@@ -272,7 +281,7 @@ run_updates () {
 
             # Display persistent HUD with update prompt message.
             echo "Prompting to install updates now and opening System Preferences -> Software Update..."
-            "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_NOW_HEADING" -description "$MSG_ACT_NOW" -lockHUD &
+            "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_INSTALL_NOW_HEADING" -description "$MSG_INSTALL_NOW" -lockHUD &
 
             # Open System Preferences - Software Update in current user context.
             CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
@@ -523,11 +532,11 @@ else
 fi
 echo "Defer button label: ${DEFER_BUTTON}"
 
-# Whether to skip deferral (defaults to false).
+# Whether to skip deferral (default to false).
 if [ "$SKIP_DEFERRAL_CUSTOM" -eq 1 ]; then
     MAX_DEFERRAL_TIME=0
 else
-    # Checks for a custom maximum deferral time, otherwise defaults to 3 days.
+    # Check for a custom maximum deferral time, otherwise default to 3 days.
     if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
         MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
     else
@@ -537,15 +546,27 @@ else
 fi
 echo "Maximum deferral time: $(convert_seconds "$MAX_DEFERRAL_TIME")"
 
-# Checks for a custom messaging logo image, otherwise defaults to the Software
+# Check for a custom messaging logo image, otherwise default to the Software
 # Update preference pane icon.
-if [[ -n "$MESSAGING_LOGO_CUSTOM" ]] && [[ -f "$MESSAGING_LOGO_CUSTOM" ]]; then
+if [ -n "$MESSAGING_LOGO_CUSTOM" ] && [ -f "$MESSAGING_LOGO_CUSTOM" ]; then
     MESSAGING_LOGO="$MESSAGING_LOGO_CUSTOM"
 else
     echo "Messaging logo undefined by admininstrator, or not found at specified path. Using default value."
     MESSAGING_LOGO="/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns"
 fi
 echo "Messaging logo: ${MESSAGING_LOGO}"
+
+# Populate support contact information (default to "IT").
+if [ -n "$SUPPORT_CONTACT_CUSTOM" ]; then
+    SUPPORT_CONTACT="$SUPPORT_CONTACT_CUSTOM"
+else
+    SUPPORT_CONTACT="IT"
+fi
+echo "Support contact: ${SUPPORT_CONTACT}"
+MSG_INSTALL_OR_DEFER="$(echo "$MSG_INSTALL_OR_DEFER" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
+MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
+MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
+MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
 
 # Check for updates, exit if none found, otherwise continue.
 check_for_updates
@@ -585,48 +606,48 @@ if [[ -n "$DEFERRED_UNTIL" ]] && (( DEFERRED_UNTIL > $(/bin/date +%s) && FORCE_D
 fi
 
 # Make a note of the time before displaying the prompt.
-PROMPT_START=$(/bin/date +%s)
+PROMPT_START="$(/bin/date +%s)"
 
 # If defer time remains, display the prompt. If not, install and restart.
 if (( DEFER_TIME_LEFT > 0 )); then
 
     # Substitute the correct number of hours remaining.
-    # If time left is more than 2 days, use days
+    # If time left is more than 2 days, use days.
     if (( DEFER_TIME_LEFT > 172800 )); then
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%DEFER_HOURS%/$(( DEFER_TIME_LEFT / 86400 )) days}"
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER// 1 days/ 1 day}"
-    # If time left is more than 2 hours, use hours
+        MSG_INSTALL_OR_DEFER="${MSG_INSTALL_OR_DEFER//%DEFER_HOURS%/$(( DEFER_TIME_LEFT / 86400 )) days}"
+        MSG_INSTALL_OR_DEFER="${MSG_INSTALL_OR_DEFER// 1 days/ 1 day}"
+    # If time left is more than 2 hours, use hours.
     elif (( DEFER_TIME_LEFT > 7200 )); then
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%DEFER_HOURS%/$(( DEFER_TIME_LEFT / 3600 )) hours}"
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER// 1 hours/ 1 hour}"
-    # If time left is more than 1 minute, use minutes
+        MSG_INSTALL_OR_DEFER="${MSG_INSTALL_OR_DEFER//%DEFER_HOURS%/$(( DEFER_TIME_LEFT / 3600 )) hours}"
+        MSG_INSTALL_OR_DEFER="${MSG_INSTALL_OR_DEFER// 1 hours/ 1 hour}"
+    # If time left is more than 1 minute, use minutes.
     elif (( DEFER_TIME_LEFT > 60 )); then
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%DEFER_HOURS%/$(( DEFER_TIME_LEFT / 60 )) minutes}"
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER// 1 minutes/ 1 minute}"
+        MSG_INSTALL_OR_DEFER="${MSG_INSTALL_OR_DEFER//%DEFER_HOURS%/$(( DEFER_TIME_LEFT / 60 )) minutes}"
+        MSG_INSTALL_OR_DEFER="${MSG_INSTALL_OR_DEFER// 1 minutes/ 1 minute}"
     else
-        MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//after %DEFER_HOURS%/very soon}"
+        MSG_INSTALL_OR_DEFER="${MSG_INSTALL_OR_DEFER//after %DEFER_HOURS%/very soon}"
     fi
 
     # Substitute the deadline date.
-    MSG_ACT_OR_DEFER="${MSG_ACT_OR_DEFER//%DEADLINE_DATE%/$(/bin/date -jf "%s" "+%b %d, %Y at %I:%M%p" "$FORCE_DATE")}"
-    MSG_ACT_OR_DEFER_HEADING="${MSG_ACT_OR_DEFER_HEADING//%DEADLINE_DATE%/$(/bin/date -jf "%s" "+%b %d, %Y" "$FORCE_DATE")}"
+    MSG_INSTALL_OR_DEFER="${MSG_INSTALL_OR_DEFER//%DEADLINE_DATE%/$(/bin/date -jf "%s" "+%b %d, %Y at %I:%M%p" "$FORCE_DATE")}"
+    MSG_INSTALL_OR_DEFER_HEADING="${MSG_INSTALL_OR_DEFER_HEADING//%DEADLINE_DATE%/$(/bin/date -jf "%s" "+%b %d, %Y" "$FORCE_DATE")}"
 
     # Determine whether to include the "you may defer" wording.
     if (( EACH_DEFER > DEFER_TIME_LEFT )); then
         # Remove "{{" and "}}" including all the text between.
-        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/{{.*}}//g')"
+        MSG_INSTALL_OR_DEFER="$(echo "$MSG_INSTALL_OR_DEFER" | /usr/bin/sed 's/{{.*}}//g')"
     else
         # Just remove "{{" and "}}" but leave the text between.
-        MSG_ACT_OR_DEFER="$(echo "$MSG_ACT_OR_DEFER" | /usr/bin/sed 's/[{{|}}]//g')"
+        MSG_INSTALL_OR_DEFER="$(echo "$MSG_INSTALL_OR_DEFER" | /usr/bin/sed 's/[{{|}}]//g')"
     fi
 
     # Show the install/defer prompt.
     echo "Prompting to install updates now or defer..."
-    PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_ACT_OR_DEFER_HEADING" -description "$MSG_ACT_OR_DEFER" -button1 "$INSTALL_BUTTON" -button2 "$DEFER_BUTTON" -defaultButton 2 -timeout 3600 -startlaunchd 2>"/dev/null")
+    PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$LOGO" -title "$MSG_INSTALL_OR_DEFER_HEADING" -description "$MSG_INSTALL_OR_DEFER" -button1 "$INSTALL_BUTTON" -button2 "$DEFER_BUTTON" -defaultButton 2 -timeout 3600 -startlaunchd 2>"/dev/null")
     JAMFHELPER_PID="$!"
 
     # Make a note of the amount of time the prompt was shown onscreen.
-    PROMPT_END=$(/bin/date +%s)
+    PROMPT_END="$(/bin/date +%s)"
     PROMPT_ELAPSED_SEC=$(( PROMPT_END - PROMPT_START ))
 
     # Generate a duration string that will be used in log output.

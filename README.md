@@ -91,6 +91,10 @@ You can customize some values using a configuration profile targeting the `$BUND
 
     **Boolean**. Whether to bypass deferral time entirely and skip straight to update enforcement (useful for script testing purposes). Defaults to `false`.
 
+- `SupportContact`
+
+    **String**. Contact information for technical support included in messaging alerts. Recommend using a team name (e.g. "Technical Support"), email address (e.g. "support@contoso.com"), or chat channel (e.g. "#technical-support"). Defaults to "IT".
+
 - `WorkdayStartHour` and `WorkdayEndHour`
 
     **Integers**. (optional) The hours that a workday starts and ends in your organization. These values must each be an integer between 0 and 23, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday.
@@ -115,27 +119,27 @@ There are several settings in the script that can be customized by changing defa
 
 #### Messaging
 
-- `MSG_ACT_OR_DEFER_HEADING`
+- `MSG_INSTALL_OR_DEFER_HEADING`
 
     The heading/title of the message users will receive when updates are available.
 
-- `MSG_ACT_OR_DEFER`
+- `MSG_INSTALL_OR_DEFER`
 
     The body of the message users will receive when updates are available.
 
-- `MSG_ACT_HEADING`
+- `MSG_INSTALL_HEADING`
 
     The heading/title of the message users will receive when they must run updates immediately.
 
-- `MSG_ACT`
+- `MSG_INSTALL`
 
     The body of the message users will receive when they must run updates immediately.
 
-- `MSG_ACT_NOW_HEADING`
+- `MSG_INSTALL_NOW_HEADING`
 
     The heading/title of the message users will receive when a manual update action is required.
 
-- `MSG_ACT_NOW`
+- `MSG_INSTALL_NOW`
 
     The body of the message users will receive when a manual update action is required.
 
