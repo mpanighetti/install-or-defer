@@ -4,12 +4,13 @@
 ###
 #
 #            Name:  Install or Defer.sh
-#     Description:  This script, meant to be triggered periodically by a
-#                   LaunchDaemon, will prompt users to install Apple system
-#                   updates that the IT department has deemed "critical." Users
-#                   will have the option to install the listed updates or defer
-#                   for the established time period. After a specified amount
-#                   of time, the update will be forced on Intel Macs, and if
+#     Description:  This script prompts users to install Apple system updates
+#                   that the IT department has deemed "critical." Users will
+#                   have the option to install the listed updates or defer for
+#                   the established time period, with a LaunchDaemon
+#                   periodically triggering the script to rerun. After a
+#                   specified amount of time, the update will be forced on Intel
+#                   Macs and persistently alerted on Apple Silicon Macs, and if
 #                   updates requiring a restart were found in that update check,
 #                   the system restarts automatically.
 #                   https://github.com/mpanighetti/install-or-defer

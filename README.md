@@ -73,7 +73,7 @@ You can customize some values using a configuration profile targeting the `$BUND
 
 - `InstallButtonLabel` and `DeferButtonLabel`
 
-    **Strings**. The labels of the install and defer buttons. Default to "Install" and "Defer" respectively. Keep these strings short since `jamfHelper` will cut off longer labels.
+    **Strings**. The labels of the install and defer buttons. Default to "Install" and "Defer" respectively. Keep these strings short since `jamfHelper` will cut off longer button labels.
 
 - `DiagnosticLog`
 
