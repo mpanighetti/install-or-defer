@@ -56,31 +56,31 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 # The message users will receive when updates are available, shown above the
 # install and defer buttons.
 MSG_INSTALL_OR_DEFER_HEADING="Updates are available"
-MSG_INSTALL_OR_DEFER="Your Mac needs to run updates for %UPDATE_LIST% by %DEADLINE_DATE%.
+MSG_INSTALL_OR_DEFER="Your Mac needs to install updates for %UPDATE_LIST% by %DEADLINE_DATE%.
 
-Please save your work, quit any applications listed above, and run all available updates. {{If now is not a good time, you may defer to delay this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they run>>.
+Please save your work, quit any applications listed above, and install all available updates. {{If now is not a good time, you may defer to delay this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they are installed>>.
 
 Please contact %SUPPORT_CONTACT% for any questions."
 
 # The message users will receive after the deferral deadline has been reached.
-MSG_INSTALL_HEADING="Please run updates now"
-MSG_INSTALL="Your Mac is about to run updates for %UPDATE_LIST% << and restart>>.
+MSG_INSTALL_HEADING="Please install updates now"
+MSG_INSTALL="Your Mac is about to install updates for %UPDATE_LIST% << and restart>>.
 
-Please save your work, quit any applications listed above, and run all available updates before the deadline.<< Your Mac will restart when all updates are finished running.>>
+Please save your work, quit any applications listed above, and install all available updates before the deadline.<< Your Mac will restart when all updates are finished installing.>>
 
 Please contact %SUPPORT_CONTACT% for any questions."
 
-# The message users will receive when a manual update action is required.
+# The message users will receive when a manual update install action is required.
 MSG_INSTALL_NOW_HEADING="Updates are available"
-MSG_INSTALL_NOW="Your Mac needs to run updates for %UPDATE_LIST% << which require a restart>>.
+MSG_INSTALL_NOW="Your Mac needs to install updates for %UPDATE_LIST% << which require a restart>>.
 
-Please save your work, quit any applications listed above, then open System Preferences -> Software Update and run all available updates.<< Your Mac will restart when all updates are finished running.>>
+Please save your work, quit any applications listed above, then open System Preferences -> Software Update and install all available updates.<< Your Mac will restart when all updates are finished installing.>>
 
 Please contact %SUPPORT_CONTACT% for any questions."
 
-# The message users will receive while updates are running in the background.
-MSG_UPDATING_HEADING="Running updates..."
-MSG_UPDATING="Running updates for %UPDATE_LIST% in the background.<< Your Mac will restart automatically when this is finished.>> Please contact %SUPPORT_CONTACT% for any questions."
+# The message users will receive while updates are installing in the background.
+MSG_UPDATING_HEADING="Installing updates..."
+MSG_UPDATING="Installing updates for %UPDATE_LIST% in the background.<< Your Mac will restart automatically when this is finished.>> Please contact %SUPPORT_CONTACT% for any questions."
 
 
 #################################### TIMING ###################################
@@ -88,7 +88,7 @@ MSG_UPDATING="Running updates for %UPDATE_LIST% in the background.<< Your Mac wi
 # When the user clicks "Defer" the next prompt is delayed by this much time.
 EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
 
-# The number of seconds to wait between displaying the "run updates" message
+# The number of seconds to wait between displaying the "install updates" message
 # and applying updates, then attempting a soft restart.
 UPDATE_DELAY=$(( 60 * 10 )) # (600 = 10 minutes)
 
@@ -185,8 +185,8 @@ check_for_updates () {
     UPDATE_CHECK="$(/usr/sbin/softwareupdate --list 2>&1)"
 
     # Determine whether any recommended macOS updates are available.
-    # If a restart is required for any pending updates, then run all available
-    # software updates.
+    # If a restart is required for any pending updates, then install all
+    # available software updates.
     if [[ "$UPDATE_CHECK" =~ (Action: restart|\[restart\]) ]]; then
         INSTALL_WHICH="all"
         RESTART_FLAG="--restart"
@@ -252,17 +252,17 @@ display_act_msg () {
     # Display persistent HUD with update prompt message.
     echo "Killing any active jamfHelper notifications..."
     /usr/bin/killall jamfHelper 2>"/dev/null"
-    echo "Displaying \"run updates\" message for $(( UPDATE_DELAY / 60 )) minutes before automatically applying updates..."
+    echo "Displaying \"install updates\" message for $(( UPDATE_DELAY / 60 )) minutes before automatically applying updates..."
     "$JAMFHELPER" -windowType "utility" -windowPosition "ur" -title "$MSG_INSTALL_HEADING" -description "$MSG_INSTALL" -icon "$LOGO" -button1 "$INSTALL_BUTTON" -defaultButton 1 -alignCountdown "right" -timeout "$UPDATE_DELAY" -countdown >"/dev/null"
 
-    # Run updates after either user confirmation or alert timeout.
-    run_updates
+    # Install updates after either user confirmation or alert timeout.
+    install_updates
 
 }
 
-# Displays HUD with updating message and runs all security updates (as defined
-# by previous checks).
-run_updates () {
+# Displays HUD with updating message and installs all security updates (as
+# defined by previous checks).
+install_updates () {
 
     # On Apple Silicon Macs, running softwareupdate --install via script is
     # currently unsupported, so we'll just inform the user with a persistent
@@ -299,9 +299,9 @@ run_updates () {
         # Display HUD with updating message.
         "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
 
-        # Run Apple system updates.
+        # Install Apple system updates.
         kickstart_softwareupdated
-        echo "Running ${INSTALL_WHICH} Apple system updates..."
+        echo "Installing ${INSTALL_WHICH} Apple system updates..."
         # macOS Big Sur requires triggering the restart as part of the
         # softwareupdate action, meaning the script will not be able to run its
         # clean_up functions until the next time it is run.
@@ -310,7 +310,7 @@ run_updates () {
         fi
         # shellcheck disable=SC2086
         UPDATE_OUTPUT_CAPTURE="$(/usr/sbin/softwareupdate --install --"${INSTALL_WHICH}" ${RESTART_FLAG} --no-scan 2>&1)"
-        echo "Finished running Apple updates."
+        echo "Finished installing Apple updates."
 
         # Trigger restart if script found an update which requires it.
         if [[ "$INSTALL_WHICH" = "all" ]]; then
@@ -571,7 +571,7 @@ MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPO
 # Check for updates, exit if none found, otherwise continue.
 check_for_updates
 
-# Perform first run tasks, including calculating deadline.
+# Perform first-run tasks, including calculating deadline.
 FORCE_DATE=$(/usr/bin/defaults read "$PLIST" UpdatesForcedAfter 2>"/dev/null")
 if [[ -z "$FORCE_DATE" || "$FORCE_DATE" -gt $(( $(/bin/date +%s) + MAX_DEFERRAL_TIME )) ]]; then
     FORCE_DATE=$(( $(/bin/date +%s) + MAX_DEFERRAL_TIME ))
@@ -672,7 +672,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
     elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 0 ]]; then
         echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}."
         /usr/bin/defaults delete "$PLIST" UpdatesDeferredUntil 2>"/dev/null"
-        run_updates
+        install_updates
     elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 1 ]]; then
         # Kill the jamfHelper prompt.
         kill -9 "$JAMFHELPER_PID"
