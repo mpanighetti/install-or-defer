@@ -165,6 +165,10 @@ The above messages use the following dynamic substitutions:
 
     When the user clicks "Defer" the next prompt is delayed by this much time.
 
+- `PROMPT_TIMEOUT`
+
+    The number of seconds to wait before timing out each Install or Defer prompt. This value should be less than the `EACH_DEFER` value.
+
 - `UPDATE_DELAY`
 
     The number of seconds to wait between displaying the "run updates" message and applying updates, then attempting a soft restart.
