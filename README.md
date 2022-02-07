@@ -69,15 +69,35 @@ This framework is designed to work "out of the box" without any modification, bu
 
 ### Configuration profile
 
-You can customize some values using a configuration profile targeting the `$BUNDLE_ID` preference domain. This allows you to apply different configurations to different groups of Macs (e.g. a dedicated test group could have shorter deferral times), and lets you make changes to these settings on the fly without repackaging and redeploying the script. The following keys can be defined via configuration profile:
+You can customize many settings using a configuration profile targeting the `$BUNDLE_ID` preference domain. This allows you to apply different configurations to different groups of Macs (e.g. a dedicated test group could have shorter deferral times), and lets you make changes to these settings on the fly without repackaging and redeploying the script. The following settings can be defined via configuration profile keys:
+
+- `InstallButtonLabel` and `DeferButtonLabel`
+
+    **Strings**. The labels of the install and defer buttons. Default to "Install" and "Defer" respectively. Keep these strings short since `jamfHelper` will cut off longer button labels.
+
+- `DiagnosticLog`
+
+    **Boolean**. Whether to write to a persistent log file at `/var/log/install-or-defer.log`. Defaults to `false`, instead writing all output to the system log for live diagnostics.
 
 - `MaxDeferralTime`
 
     **Integer**. Number of seconds between the first script run and the updates being enforced. Defaults to `259200` (3 days).
 
+- `MessagingLogo`
+
+    **String**. File path to a logo that will be used in messaging. Recommend 512px, PNG format. Defaults to the Software Update icon.
+
 - `SkipDeferral`
 
     **Boolean**. Whether to bypass deferral time entirely and skip straight to update enforcement (useful for script testing purposes). Defaults to `false`.
+
+- `SupportContact`
+
+    **String**. Contact information for technical support included in messaging alerts. Recommend using a team name (e.g. "Technical Support"), email address (e.g. "support@contoso.com"), or chat channel (e.g. "#technical-support"). Defaults to "IT".
+
+- `WorkdayStartHour` and `WorkdayEndHour`
+
+    **Integers**. (optional) The hours that a workday starts and ends in your organization. These values must each be an integer between 0 and 23, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday.
 
 ### Script variables
 
@@ -89,13 +109,9 @@ There are several settings in the script that can be customized by changing defa
 
     Path to a plist file that is used to store settings locally. Omit ".plist" extension.
 
-- `LOGO`
-
-    (Optional) Path to a logo that will be used in messaging. Recommend 512px, PNG format. If no logo is provided, the Software Update icon will be used (as shown in the example screenshots in this README).
-
 - `BUNDLE_ID`
 
-    The identifier of the LaunchDaemon that is used to call this script, which should match the file in the __payload/Library/LaunchDaemons__ folder. Omit ".plist" extension.
+    The identifier of the LaunchDaemon that is used to call the `Install or Defer.sh` script, which should match the file name in the __payload/Library/LaunchDaemons__ folder. Omit ".plist" extension.
 
 - `SCRIPT_PATH`
 
@@ -103,35 +119,27 @@ There are several settings in the script that can be customized by changing defa
 
 #### Messaging
 
-- `INSTALL_BUTTON`
-
-    The label of the install button.
-
-- `DEFER_BUTTON`
-
-    The label of the defer button.
-
-- `MSG_ACT_OR_DEFER_HEADING`
+- `MSG_INSTALL_OR_DEFER_HEADING`
 
     The heading/title of the message users will receive when updates are available.
 
-- `MSG_ACT_OR_DEFER`
+- `MSG_INSTALL_OR_DEFER`
 
     The body of the message users will receive when updates are available.
 
-- `MSG_ACT_HEADING`
+- `MSG_INSTALL_HEADING`
 
     The heading/title of the message users will receive when they must run updates immediately.
 
-- `MSG_ACT`
+- `MSG_INSTALL`
 
     The body of the message users will receive when they must run updates immediately.
 
-- `MSG_ACT_NOW_HEADING`
+- `MSG_INSTALL_NOW_HEADING`
 
     The heading/title of the message users will receive when a manual update action is required.
 
-- `MSG_ACT_NOW`
+- `MSG_INSTALL_NOW`
 
     The body of the message users will receive when a manual update action is required.
 
@@ -145,17 +153,22 @@ There are several settings in the script that can be customized by changing defa
 
 The above messages use the following dynamic substitutions:
 
-- `%UPDATE_LIST%` will be automatically replaced with a comma-separated list of all recommended updates found in a Software Update check.
+- `%DEADLINE_DATE%` will be automatically replaced with the deadline date and time before updates are enforced.
 - `%DEFER_HOURS%` will be automatically replaced by the number of days, hours, or minutes remaining in the deferral period.
-- `%DEADLINE_DATE%` will be automatically replaced by the deadline date and time before updates are enforced.
+- `%SUPPORT_CONTACT%` will be automatically replaced with "IT" or a custom value set via configuration profile key.
+- `%UPDATE_LIST%` will be automatically replaced with a comma-separated list of all recommended updates found in a Software Update check.
 - The section in the `{{double curly brackets}}` will be removed when this message is displayed for the final time before the deferral deadline.
-- The section in the `<<double comparison operators>>` will be removed if a restart is not required.
+- The sections in the `<<double comparison operators>>` will be removed if a restart is not required for the pending updates.
 
 #### Timing
 
 - `EACH_DEFER`
 
     When the user clicks "Defer" the next prompt is delayed by this much time.
+
+- `PROMPT_TIMEOUT`
+
+    The number of seconds to wait before timing out each Install or Defer prompt. This value should be less than the `EACH_DEFER` value.
 
 - `UPDATE_DELAY`
 
@@ -164,10 +177,6 @@ The above messages use the following dynamic substitutions:
 - `HARD_RESTART_DELAY`
 
     The number of seconds to wait between attempting a soft restart and forcing a restart.
-
-- `WORKDAY_START_HR` and `WORKDAY_END_HR`
-
-    (optional) The hours that a workday starts and ends in your organization. These values must each be an integer between 0 and 23, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday. If you want to use this functionality, uncomment both variables and set your desired values.
 
 
 ### Installer creation
@@ -322,9 +331,9 @@ Once the Testing steps above have been followed, there are only a few steps rema
 
 If major problems are detected with the update prompt or installation workflow, disable the __Install or Defer__ policy. This will prevent computers from being newly prompted for installation of updates.
 
-Note that any computers which have already received the framework push will continue through the motions of alerting, deferring, updating, and restarting. If you need to remove the framework from your fleet and stop it from running, you could write an uninstall script using the preinstall script as a foundation (it would basically just need to unload the LaunchDaemons and remove the resource files).
+Note that any computers which have already received the framework push will continue through the motions of alerting, deferring, updating, and restarting. If you need to remove the framework from your fleet and stop it from running, you could write an uninstall script using the `preinstall` script as a foundation (it would basically just need to unload the LaunchDaemons and remove the resource files).
 
-Once the script is debugged and updated, you can generate a new installer package, upload the package to the Jamf Pro server, link it to the policy, and re-enable the policy. The preinstall script will remove any existing resources and replace them with your modified files.
+Once the script is debugged and updated, you can generate a new installer package, upload the package to the Jamf Pro server, link it to the policy, and re-enable the policy. The `preinstall` script will remove any existing resources and replace them with your modified files.
 
 
 ## Troubleshooting
@@ -341,10 +350,9 @@ sudo chmod 644 /path/to/install-or-defer/payload/Library/LaunchDaemons/com.githu
 
 ## Miscellaneous Notes
 
-- Feel free to change the `com.github.mpanighetti` bundle identifier to match your company instead. If you do this, make sure to update the filenames of the LaunchDaemons, their corresponding file paths in the preinstall and postinstall scripts, and the `$BUNDLE_ID` variable in the script.
-- You can specify a different default logo if you'd rather not use the Software Update icon (e.g. corporate branding). `jamfHelper` supports .icns and .png files.
+- Feel free to change the `com.github.mpanighetti` bundle identifier to match your company instead. If you do this, make sure to update the filenames of the LaunchDaemons, their corresponding file paths in the `preinstall` and `postinstall` scripts, the `$BUNDLE_ID` variable in the script, and the bundle identifier used for settings enforced via configuration profile.
 - If you encounter any issues or have questions, please open an issue on this GitHub repo.
 
 Enjoy!
 
-<a name="footnote1"><sup>1</sup></a> This example frequency assumes you're using the default deferral period of 72 hours. If you've set a custom deferral period, it is recommended that your policy runs less frequently than the maximum deferral time, so that your Macs have the chance to defer, timeout, and apply the updates before the policy attempts to run again (since the preinstall script will reset `UpdatesDeferredUntil` and `UpdatesForcedAfter`).
+<a name="footnote1"><sup>1</sup></a> This example frequency assumes you're using the default deferral period of 72 hours. If you've set a custom deferral period, it is recommended that your policy runs less frequently than the maximum deferral time, so that your Macs have the chance to defer, timeout, and apply the updates before the policy attempts to run again (since the `preinstall` script will reset `UpdatesDeferredUntil` and `UpdatesForcedAfter`).
