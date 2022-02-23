@@ -71,33 +71,17 @@ This framework is designed to work "out of the box" without any modification, bu
 
 You can customize many settings using a configuration profile targeting the `$BUNDLE_ID` preference domain. This allows you to apply different configurations to different groups of Macs (e.g. a dedicated test group could have shorter deferral times), and lets you make changes to these settings on the fly without repackaging and redeploying the script. The following settings can be defined via configuration profile keys:
 
-- `InstallButtonLabel` and `DeferButtonLabel`
-
-    **Strings**. The labels of the install and defer buttons. Default to "Install" and "Defer" respectively. Keep these strings short since `jamfHelper` will cut off longer button labels.
-
-- `DiagnosticLog`
-
-    **Boolean**. Whether to write to a persistent log file at `/var/log/install-or-defer.log`. Defaults to `false`, instead writing all output to the system log for live diagnostics.
-
-- `MaxDeferralTime`
-
-    **Integer**. Number of seconds between the first script run and the updates being enforced. Defaults to `259200` (3 days).
-
-- `MessagingLogo`
-
-    **String**. File path to a logo that will be used in messaging. Recommend 512px, PNG format. Defaults to the Software Update icon.
-
-- `SkipDeferral`
-
-    **Boolean**. Whether to bypass deferral time entirely and skip straight to update enforcement (useful for script testing purposes). Defaults to `false`.
-
-- `SupportContact`
-
-    **String**. Contact information for technical support included in messaging alerts. Recommend using a team name (e.g. "Technical Support"), email address (e.g. "support@contoso.com"), or chat channel (e.g. "#technical-support"). Defaults to "IT".
-
-- `WorkdayStartHour` and `WorkdayEndHour`
-
-    **Integers**. (optional) The hours that a workday starts and ends in your organization. These values must each be an integer between 0 and 23, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday.
+| Key                      | Type             | Default Value |Minimum Version | Description |
+|--------------------------|------------------|---------------|----------------|-------------|
+|`InstallButtonLabel`      |string|Install|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The label of the install button. Keep this string short since jamfHelper will cut off longer button labels.|
+|`DeferButtonLabel`        |string|Defer|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The label of the defer button. Keep this string short since jamfHelper will cut off longer button labels.|
+|`DiagnosticLog`           |boolean|`false`|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|Whether to write to a persistent log file at /var/log/install-or-defer.log. If undefined or set to false, the script writes all output to the system log for live diagnostics.|
+|`MaxDeferralTime`         |integer|`259200`|[2.2](https://github.com/mpanighetti/install-or-defer/releases/tag/v2.2)|Number of seconds between the first script run and the updates being enforced. Defaults to 259200 (3 days).|
+|`MessagingLogo`           |string|Software Update icon (`/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns`)|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|File path to a logo that will be used in messaging. Recommend 512px, PNG format.|
+|`SkipDeferral`            |boolean|`false`|[2.2](https://github.com/mpanighetti/install-or-defer/releases/tag/v2.2)|Whether to bypass deferral time entirely and skip straight to update enforcement (useful for script testing purposes).|
+|`SupportContact`          |string|IT|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|Contact information for technical support included in messaging alerts. Recommend using a team name (e.g. "Technical Support"), email address (e.g. "support@contoso.com"), or chat channel (e.g. "#technical-support").|
+|`WorkdayStartHour`        |integer||[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The hour that a workday starts in your organization. This value must be an integer between 0 and 22, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday. If `WorkdayStartHour` or `WorkdayEndHour` are undefined, deadlines will be scheduled based on maximum deferral time and not account for the time of day that the deadline lands.|
+|`WorkdayEndHour`          |integer||[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The hour that a workday ends in your organization. This value must be an integer between 1 and 23, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday. If `WorkdayStartHour` or `WorkdayEndHour` are undefined, deadlines will be scheduled based on maximum deferral time and not account for the time of day that the deadline lands.|
 
 ### Script variables
 
