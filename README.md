@@ -60,7 +60,7 @@ The framework has three major limitations:
 
 - Sequential updates cannot be installed as a group (e.g. Security Update 2019-002 Mojave cannot be installed unless 10.14.6 is already installed). If multiple sequential security updates are available, they are treated as two separate rounds of prompting/deferring. As a result, Macs requiring sequential updates may take more than one deferral and enforcement cycle (default 3 days) to be fully patched.
 - Reasonable attempts have been made to make this workflow enforceable, but there's nothing stopping an administrator of a Mac from unloading the LaunchDaemon or resetting the preference file.
-- On Apple Silicon Macs, running `softwareupdate --download` and `softwareupdate --install` via script are unsupported. When this framework is run on arm64 architecture, enforcement takes a "softer" form, instead opening System Preferences - Software Update and leaving a persistent prompt in place until the updates are applied.
+- On Apple Silicon Macs, running `softwareupdate --download` and `softwareupdate --install` via script are unsupported. When this framework is run on arm64 architecture, enforcement takes a "softer" form, instead opening System Preferences - Software Update and leaving a persistent prompt in place until the updates are applied. Note that this workflow requires the Software Update preference pane to be available to a user with a [secure token and volume ownership](https://support.apple.com/guide/deployment/use-secure-and-bootstrap-tokens-dep24dbdcf9e/), so that they can apply available software updates and restart their Mac.
 
 
 ## Settings customization
