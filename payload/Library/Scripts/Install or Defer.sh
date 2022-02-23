@@ -16,8 +16,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-02-03
-#         Version:  5.0
+#   Last Modified:  2022-02-23
+#         Version:  5.0.1
 #
 ###
 
@@ -170,13 +170,20 @@ convert_seconds () {
 
 }
 
-# Force-restarts the com.apple.softwareupdated service. Necessary to make
-# repeated update checks more reliable in macOS Big Sur and later.
-kickstart_softwareupdated () {
+# Deletes cached results of previous software update checks, force-restarts the
+# com.apple.softwareupdated system service, and sleeps for a period specified by
+# the function run command. Necessary to make repeated update checks more
+# reliable in macOS Big Sur and later.
+restart_softwareupdate_daemon () {
 
-    echo "Kickstarting com.apple.softwareupdated..."
-    /bin/launchctl kickstart -k "system/com.apple.softwareupdated"
-    sleep "${1}"
+    if [ "$OS_MAJOR" -ge 11 ]; then
+        echo "Deleting cached update check data..."
+        /usr/bin/defaults delete "/Library/Preferences/com.apple.SoftwareUpdate.plist"
+        /bin/rm -f "/Library/Preferences/com.apple.SoftwareUpdate.plist"
+        echo "Restarting com.apple.softwareupdated system service..."
+        /bin/launchctl kickstart -k "system/com.apple.softwareupdated"
+        sleep "${1}"
+    fi
 
 }
 
@@ -184,7 +191,7 @@ kickstart_softwareupdated () {
 # available.
 check_for_updates () {
 
-    kickstart_softwareupdated "60"
+    restart_softwareupdate_daemon "30"
     echo "Checking for pending system updates..."
     UPDATE_CHECK="$(/usr/sbin/softwareupdate --list 2>&1)"
 
@@ -303,7 +310,7 @@ install_updates () {
         "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
 
         # Install Apple system updates.
-        kickstart_softwareupdated "60"
+        restart_softwareupdate_daemon "30"
         echo "Installing ${INSTALL_WHICH} Apple system updates..."
         # macOS Big Sur requires triggering the restart as part of the
         # softwareupdate action, meaning the script will not be able to run its
