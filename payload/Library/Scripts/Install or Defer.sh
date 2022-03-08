@@ -16,8 +16,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-02-23
-#         Version:  5.0.1
+#   Last Modified:  2022-02-25
+#         Version:  5.0.2
 #
 ###
 
@@ -180,6 +180,11 @@ restart_softwareupdate_daemon () {
         echo "Deleting cached update check data..."
         /usr/bin/defaults delete "/Library/Preferences/com.apple.SoftwareUpdate.plist"
         /bin/rm -f "/Library/Preferences/com.apple.SoftwareUpdate.plist"
+        # Write macOS beta channel catalog URL back to the plist if previously defined.
+        if [ -n "$SOFTWAREUPDATE_CATALOG_URL" ]; then
+            /usr/bin/defaults write "/Library/Preferences/com.apple.SoftwareUpdate" CatalogURL -string "$SOFTWAREUPDATE_CATALOG_URL"
+            echo "Restored macOS beta channel catalog URL."
+        fi
         echo "Restarting com.apple.softwareupdated system service..."
         /bin/launchctl kickstart -k "system/com.apple.softwareupdated"
         sleep "${1}"
@@ -473,14 +478,23 @@ fi
 # Determine platform architecture.
 PLATFORM_ARCH="$(/usr/bin/arch)"
 
+# Determine software update custom catalog URL if defined. Used for running beta
+# macOS releases. This URL needs to be retained in
+# /Library/Preferences/com.apple.SoftwareUpdate.plist if that file is reset in
+# the restart_softwareupdate_daemon function.
+SOFTWAREUPDATE_CATALOG_URL=$(/usr/bin/defaults read "/Library/Preferences/com.apple.SoftwareUpdate" CatalogURL 2>"/dev/null")
+if [ -n "$SOFTWAREUPDATE_CATALOG_URL" ]; then
+    echo "Found macOS beta channel catalog URL, will retain this setting whenever com.apple.SoftwareUpdate is reset: ${SOFTWAREUPDATE_CATALOG_URL}"
+fi
+
 # We need to be connected to the internet in order to download updates.
 if nc -zw1 "swscan.apple.com" 443; then
-    # Check if a custom CatalogURL is set and if it is available
-    # (deprecated in macOS 11+).
+    # Check if a software update custom catalog URL is set as a managed
+    # preference and if it is available (deprecated in macOS Big Sur and later).
     if [[ "$OS_MAJOR" -lt 11 ]]; then
-        SU_CATALOG=$(/usr/bin/defaults read "/Library/Managed Preferences/com.apple.SoftwareUpdate" CatalogURL 2>"/dev/null")
-        if [[ "$SU_CATALOG" != "None" ]]; then
-            if /usr/bin/curl --user-agent "Darwin/$(/usr/bin/uname -r)" -s --head "$SU_CATALOG" | /usr/bin/grep "200 OK" >"/dev/null"; then
+        SOFTWAREUPDATE_CATALOG_URL_MANAGED=$(/usr/bin/defaults read "/Library/Managed Preferences/com.apple.SoftwareUpdate" CatalogURL 2>"/dev/null")
+        if [[ "$SOFTWAREUPDATE_CATALOG_URL_MANAGED" != "None" ]]; then
+            if /usr/bin/curl --user-agent "Darwin/$(/usr/bin/uname -r)" -s --head "$SOFTWAREUPDATE_CATALOG_URL_MANAGED" | /usr/bin/grep "200 OK" >"/dev/null"; then
                 echo "❌ ERROR: Software update catalog can not be reached."
                 BAILOUT="true"
             fi

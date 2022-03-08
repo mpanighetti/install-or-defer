@@ -83,6 +83,22 @@ You can customize many settings using a configuration profile targeting the `$BU
 |`WorkdayStartHour`        |integer||[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The hour that a workday starts in your organization. This value must be an integer between 0 and 22, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday. If `WorkdayStartHour` or `WorkdayEndHour` are undefined, deadlines will be scheduled based on maximum deferral time and not account for the time of day that the deadline lands.|
 |`WorkdayEndHour`          |integer||[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The hour that a workday ends in your organization. This value must be an integer between 1 and 23, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday. If `WorkdayStartHour` or `WorkdayEndHour` are undefined, deadlines will be scheduled based on maximum deferral time and not account for the time of day that the deadline lands.|
 
+#### Create a configuration profile in Jamf Pro
+
+1. [Open the Install or Defer profile manifest in ProfileManifestsMirror.](https://github.com/Jamf-Custom-Profile-Schemas/ProfileManifestsMirror/blob/main/manifests/ManagedPreferencesApplications/com.github.mpanighetti.install-or-defer.json)
+2. [Copy the raw contents of the file to your clipboard.](https://github.blog/changelog/2021-09-20-quickly-copy-the-contents-of-a-file-to-the-clipboard/)
+3. [Create the configuration profile](https://docs.jamf.com/technical-papers/jamf-pro/json-schema/10.26.0/Customize_the_App_Using_Jamf_Pro.html):
+    1. In the Jamf Pro web app, [create a new configuration profile](https://docs.jamf.com/jamf-pro/documentation/Computer_Configuration_Profiles.html).
+    2. Under the **General** payload, give the configuration profile a unique name, assign a category, and set **Level** to **Computer Level**.
+    3. Under **Scope**, specify the groups that will receive this profile for enforced settings. You can assign it to all computers, limit it to individual test computers, or specify one or more computer groups.
+    4. Select the **Application & Custom Settings** payload, then click **External Applications**.
+    5. Click **➕ Add** and select **Custom Schema** from the **Source** menu.
+    6. Enter the bundle identifier (`com.github.mpanighetti.install-or-defer`) under **Preference Domain**.
+    7. Under **Custom Schema**, click **➕ Add schema**.
+    8. Paste the raw contents from the Install or Defer profile manifest into the text editor window, then click **Save**.
+    9. Make all desired selections, using the descriptions on the page or the above table for reference. None of these are required settings; leaving one undefined will revert to script default settings for that feature.
+    10. Once the profile is finished, click **Save**.
+
 ### Script variables
 
 There are several settings in the script that can be customized by changing default variable values:
