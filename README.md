@@ -14,7 +14,7 @@ Here's what needs to be in place in order to use this framework:
 - The current version of this framework officially supports __macOS Mojave, Catalina, Big Sur, and Monterey__, but older script versions should continue to function normally for previous macOS releases (note, however, that those versions of macOS are no longer receiving regular security updates from Apple and thus may not benefit from this framework).
 - Target Macs must be __enrolled in Jamf Pro__ and have the `jamfHelper` binary installed.
 
-## Optional
+### Optional
 
 You might also consider implementing a __Mac with Content Caching service active__ at all major office locations. This will conserve network bandwidth and improve the download speed of updates.
 
