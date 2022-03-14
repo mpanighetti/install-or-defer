@@ -16,17 +16,14 @@ Here's what needs to be in place in order to use this framework:
 
 ## Optional
 
-You might also consider the following optional configurations:
-
-- A __company logo__ graphic file in a "stash" on each Mac (if no logo is provided, the Software Update icon will be used).
-- A __Mac with Content Caching service active__ at all major office locations. This will conserve network bandwidth and improve the download speed of updates.
+You might also consider implementing a __Mac with Content Caching service active__ at all major office locations. This will conserve network bandwidth and improve the download speed of updates.
 
 ## Assumptions
 
 The following is assumed to be the case when implementing this framework:
 
 - __An automatic restart is desired when updates require it__. This script is not necessary if restart-required updates are not mandatory within your environment and are instead left up to the person managing the Mac.
-- __The Jamf Pro server has one or more policies that regularly collect inventory updates from the Mac fleet__. This will ensure that Install or Defer is only pushed to a Mac that has a pending update and avoids false-positive script runs (even though the script will not display any alerts if no updates are needed, pushing it to a Mac that doesn't need it results in unnecessary memory and network bandwidth usage and should be avoided).
+- __The Jamf Pro server has one or more policies that regularly collect inventory updates from the Mac fleet__. This will ensure that Install or Defer is only pushed to a Mac that has a pending update and avoids false-positive script runs (even though the script will not display any alerts if no updates are needed, pushing it to a Mac with no pending updates results in unnecessary memory and network bandwidth usage and should be avoided).
 
 
 ## Workflow detail
@@ -56,11 +53,12 @@ Here's how everything works, once it's configured:
 
 ## Limitations
 
-The framework has three major limitations:
+The framework has a few limitations of note:
 
-- Sequential updates cannot be installed as a group (e.g. Security Update 2019-002 Mojave cannot be installed unless 10.14.6 is already installed). If multiple sequential security updates are available, they are treated as two separate rounds of prompting/deferring. As a result, Macs requiring sequential updates may take more than one deferral and enforcement cycle (default 3 days) to be fully patched.
+- Sequential updates cannot be installed as a group (e.g. Security Update 2022-003 Catalina cannot be installed unless 10.15.7 is already installed). If multiple sequential security updates are available, they are treated as two separate rounds of prompting/deferring. As a result, Macs requiring sequential updates may take more than one deferral and enforcement cycle (default 3 days) to be fully patched.
 - Reasonable attempts have been made to make this workflow enforceable, but there's nothing stopping an administrator of a Mac from unloading the LaunchDaemon or resetting the preference file.
-- On Apple Silicon Macs, running `softwareupdate --download` and `softwareupdate --install` via script are unsupported. When this framework is run on arm64 architecture, enforcement takes a "softer" form, instead opening System Preferences - Software Update and leaving a persistent prompt in place until the updates are applied. Note that this workflow requires the Software Update preference pane to be available to a user with a [secure token and volume ownership](https://support.apple.com/guide/deployment/use-secure-and-bootstrap-tokens-dep24dbdcf9e/), so that they can apply available software updates and restart their Mac.
+- On Apple Silicon Macs, running `softwareupdate --download` and `softwareupdate --install` via background script are unsupported. When this framework is run on an Apple Silicon Mac, enforcement takes a "softer" form, instead opening System Preferences -> Software Update and leaving a persistent prompt in place until the updates are applied. Note that this workflow requires the Software Update preference pane to be available to a user with a [secure token and volume ownership](https://support.apple.com/guide/deployment/use-secure-and-bootstrap-tokens-dep24dbdcf9e/), so that they can apply available software updates and restart their Mac.
+- Several versions of macOS Big Sur and macOS Monterey have known software update reliability issues, resulting in inconsistently presenting new updates as available or failing to install updates. Some measures have been taken to improve reliability in the latest releases of this framework, but ultimately a resolution will require a fix from Apple. The hope is that these bugs will be fixed in a future macOS software update; in the meantime, see [#54](https://github.com/mpanighetti/install-or-defer/issues/54) and [#76](https://github.com/mpanighetti/install-or-defer/issues/76) for ongoing discussions, and reach out to Apple Enterprise Support to increase signal on the issue.
 
 
 ## Settings customization
@@ -75,7 +73,7 @@ You can customize many settings using a configuration profile targeting the `$BU
 |--------------------------|------------------|---------------|----------------|-------------|
 |`InstallButtonLabel`      |string|Install|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The label of the install button. Keep this string short since `jamfHelper` will cut off longer button labels.|
 |`DeferButtonLabel`        |string|Defer|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The label of the defer button. Keep this string short since `jamfHelper` will cut off longer button labels.|
-|`DiagnosticLog`           |boolean|`false`|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|Whether to write to a persistent log file at ``/var/log/install-or-defer.log`. If undefined or set to false, the script writes all output to the system log for live diagnostics.|
+|`DiagnosticLog`           |boolean|`false`|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|Whether to write to a persistent log file at `/var/log/install-or-defer.log`. If undefined or set to false, the script writes all output to the system log for live diagnostics.|
 |`MaxDeferralTime`         |integer|`259200`|[2.2](https://github.com/mpanighetti/install-or-defer/releases/tag/v2.2)|Number of seconds between the first script run and the updates being enforced. Defaults to 259200 (3 days).|
 |`MessagingLogo`           |string|Software Update icon|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|File path to a logo that will be used in messaging. Recommend 512px, PNG format.|
 |`SkipDeferral`            |boolean|`false`|[2.2](https://github.com/mpanighetti/install-or-defer/releases/tag/v2.2)|Whether to bypass deferral time entirely and skip straight to update enforcement (useful for script testing purposes).|
