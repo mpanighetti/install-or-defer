@@ -135,6 +135,9 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # - WorkdayStartHour (Integer). The hour that a workday starts in your
 # organization.
 # - WorkdayEndHour (Integer). The hour that a workday ends in your organization.
+# - SysPrefsUpdate (Boolean). Whether to push users to update through System Preferences 
+# instead of leveraging the softwareupdate command. Defaults to False (meaning
+# updates are installed directly when users click "Install")
 
 DEFER_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DeferButtonLabel 2>"/dev/null")
 DIAGNOSTIC_LOG_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DiagnosticLog 2>"/dev/null")
@@ -145,6 +148,7 @@ SKIP_DEFERRAL_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BU
 SUPPORT_CONTACT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SupportContact 2>"/dev/null")
 WORKDAY_END_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayEndHour 2>"/dev/null")
 WORKDAY_START_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayStartHour 2>"/dev/null")
+SYSPREFS_UPDATE=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SysPrefsUpdate 2>"/dev/null")
 
 
 ################################## FUNCTIONS ##################################
@@ -309,8 +313,19 @@ install_updates () {
 
         done
 
-    else
+    elif [ "$SYSPREFS_UPDATE" -eq 1 ] && (( DEFER_TIME_LEFT > 0 )); then
+        # Choosing to use System Preferences - Software Update for installing available updates.
 
+        # Clear out jamfHelper alert to prevent pileups.
+        echo "Killing any active jamfHelper notifications..."
+        /usr/bin/killall jamfHelper 2>"/dev/null"
+
+        # Open System Preferences - Software Update in current user context.
+        CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
+        USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
+        /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
+
+    else
         # Display HUD with updating message.
         "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
 
