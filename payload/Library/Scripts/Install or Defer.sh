@@ -287,9 +287,9 @@ install_updates () {
     # On Apple Silicon Macs, running softwareupdate --install via script is
     # currently unsupported, so we'll just inform the user with a persistent
     # alert and open the Software Update window for manual update.
-    if [[ "$PLATFORM_ARCH" = "arm64" ]]; then
+    if [[ "$PLATFORM_ARCH" = "arm64" ]] || [ "$SYSPREFS_UPDATE" -eq 1 ]; then
 
-        echo "This is an Apple Silicon Mac with pending updates. Displaying persistent alert until updates are applied..."
+        echo "This is an Apple Silicon Mac with pending updates OR we've enabled updates via SysPrefs. Displaying persistent alert until updates are applied..."
 
         # Loop this check until softwareupdate --list shows no more pending
         # recommended updates.
@@ -312,25 +312,6 @@ install_updates () {
             sleep 60
 
         done
-
-    elif [ "$SYSPREFS_UPDATE" -eq 1 ] && (( DEFER_TIME_LEFT > 0 )); then
-        # Choosing to use System Preferences - Software Update for installing available updates.
-
-        # Clear out jamfHelper alert to prevent pileups.
-        echo "Killing any active jamfHelper notifications..."
-        /usr/bin/killall jamfHelper 2>"/dev/null"
-
-        # Display persistent HUD with update prompt message.
-        echo "Prompting to install updates now and opening System Preferences -> Software Update..."
-        "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_NOW_HEADING" -description "$MSG_INSTALL_NOW" -lockHUD &
-            
-        # Open System Preferences - Software Update in current user context.
-        CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
-        USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
-        /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
-
-        # Leave the alert up for 60 seconds before looping.
-        sleep 60
 
     else
         # Display HUD with updating message.
