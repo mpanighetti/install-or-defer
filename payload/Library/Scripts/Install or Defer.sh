@@ -9,15 +9,14 @@
 #                   have the option to install the listed updates or defer for
 #                   the established time period, with a LaunchDaemon
 #                   periodically triggering the script to rerun. After a
-#                   specified amount of time, the update will be forced on Intel
-#                   Macs and persistently alerted on Apple Silicon Macs, and if
-#                   updates requiring a restart were found in that update check,
-#                   the system restarts automatically.
+#                   specified amount of time, alerts will be displayed until all
+#                   required updates have been run, and if updates requiring a
+#                   restart were run, the system restarts automatically.
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-02-25
-#         Version:  5.0.2
+#   Last Modified:  2022-03-28
+#         Version:  5.0.3
 #
 ###
 
@@ -58,7 +57,7 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 MSG_INSTALL_OR_DEFER_HEADING="Updates are available"
 MSG_INSTALL_OR_DEFER="Your Mac needs to install updates for %UPDATE_LIST% by %DEADLINE_DATE%.
 
-Please save your work, quit any applications listed above, and install all available updates. {{If now is not a good time, you may defer to delay this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they are installed>>.
+Please save your work and install all available updates. {{If now is not a good time, you may defer to delay this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they are installed>>.
 
 Please contact %SUPPORT_CONTACT% for any questions."
 
@@ -66,7 +65,7 @@ Please contact %SUPPORT_CONTACT% for any questions."
 MSG_INSTALL_HEADING="Please install updates now"
 MSG_INSTALL="Your Mac is about to install updates for %UPDATE_LIST%<< and restart>>.
 
-Please save your work, quit any applications listed above, and install all available updates before the deadline.<< Your Mac will restart when all updates are finished installing.>>
+Please save your work and install all available updates before the deadline.<< Your Mac will restart when all updates are finished installing.>>
 
 Please contact %SUPPORT_CONTACT% for any questions."
 
@@ -74,7 +73,7 @@ Please contact %SUPPORT_CONTACT% for any questions."
 MSG_INSTALL_NOW_HEADING="Updates are available"
 MSG_INSTALL_NOW="Your Mac needs to install updates for %UPDATE_LIST%<< which require a restart>>.
 
-Please save your work, quit any applications listed above, then open System Preferences -> Software Update and install all available updates.<< Your Mac will restart when all updates are finished installing.>>
+Please save your work, open System Preferences -> Software Update, and install all available updates.<< Your Mac will restart when all updates are finished installing.>>
 
 Please contact %SUPPORT_CONTACT% for any questions."
 
@@ -112,9 +111,13 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # "Install".
 # - DeferButtonLabel (String). The label of the defer button. Defaults to
 # "Defer".
-# - DiagnosticLog (Boolean). Whether to write to a persistent log at
-# /var/log/install-or-defer.log. Defaults to False, instead writing all output
-# to the system log for live diagnostics.
+# - DiagnosticLog (Boolean). Whether to write to a persistent log file at
+# /var/log/install-or-defer.log. If undefined or set to false, the script writes
+# all output to the system log for live diagnostics.
+# - ManualUpdates (Boolean). Whether to prompt users to run updates manually via
+# System Preferences. This is always the behavior on Apple Silicon Macs and
+# cannot be overridden. If undefined or set to false on Intel Macs, the script
+# triggers updates via scripted softwareupdate commands.
 # - MaxDeferralTime (Integer). Number of seconds between the first script run
 # and the updates being enforced. Defaults to 259200 (3 days).
 # - MessagingLogo (String). File path to a logo that will be used in messaging.
@@ -125,30 +128,30 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # MaxDeferralTime.
 # - SupportContact (String). Contact information for technical support included
 # in messaging alerts. Recommend using a team name (e.g. "Technical Support"),
-# email address (e.g. "support@contoso.com"), or chat channel
-# (e.g. "#technical-support"). Defaults to "IT".
+# email address (e.g. "support@contoso.com"), or chat channel (e.g.
+# "#technical-support"). Defaults to "IT".
 #
 # (optional) The hours that a workday starts and ends in your organization.
 # These values must each be an integer between 0 and 23, and the end hour must
 # be later than the start hour. If the update deadline falls within this window
 # of time, it will be moved forward to occur at the end of the workday.
+# If WorkdayStartHour or WorkdayEndHour are undefined, deadlines will be
+# scheduled based on maximum deferral time and not account for the time of day
+# that the deadline lands.
 # - WorkdayStartHour (Integer). The hour that a workday starts in your
 # organization.
 # - WorkdayEndHour (Integer). The hour that a workday ends in your organization.
-# - SysPrefsUpdate (Boolean). Whether to push users to update through System Preferences 
-# instead of leveraging the softwareupdate command. Defaults to False (meaning
-# updates are installed directly when users click "Install")
 
 DEFER_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DeferButtonLabel 2>"/dev/null")
 DIAGNOSTIC_LOG_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DiagnosticLog 2>"/dev/null")
 INSTALL_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" InstallButtonLabel 2>"/dev/null")
+MANUAL_UPDATES_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" ManualUpdates 2>"/dev/null")
 MAX_DEFERRAL_TIME_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MaxDeferralTime 2>"/dev/null")
 MESSAGING_LOGO_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MessagingLogo 2>"/dev/null")
 SKIP_DEFERRAL_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SkipDeferral 2>"/dev/null")
 SUPPORT_CONTACT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SupportContact 2>"/dev/null")
 WORKDAY_END_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayEndHour 2>"/dev/null")
 WORKDAY_START_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayStartHour 2>"/dev/null")
-SYSPREFS_UPDATE=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SysPrefsUpdate 2>"/dev/null")
 
 
 ################################## FUNCTIONS ##################################
@@ -284,12 +287,12 @@ display_act_msg () {
 # defined by previous checks).
 install_updates () {
 
-    # On Apple Silicon Macs, running softwareupdate --install via script is
-    # currently unsupported, so we'll just inform the user with a persistent
-    # alert and open the Software Update window for manual update.
-    if [[ "$PLATFORM_ARCH" = "arm64" ]] || [ "$SYSPREFS_UPDATE" -eq 1 ]; then
+    # For Apple Silicon Macs, or if specified in a configuration profile
+    # setting, inform the user of required updates via a persistent alert and
+    # open the Software Update window until the user manually runs updates.
+    if [[ "$PLATFORM_ARCH" = "arm64" ]] || [ "$MANUAL_UPDATES_CUSTOM" -eq 1 ]; then
 
-        echo "This is an Apple Silicon Mac with pending updates OR we've enabled updates via SysPrefs. Displaying persistent alert until updates are applied..."
+        echo "Manual updates enabled. Displaying persistent alert until updates are applied..."
 
         # Loop this check until softwareupdate --list shows no more pending
         # recommended updates.
