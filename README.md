@@ -4,7 +4,7 @@ This framework will enforce the installation of pending Apple security updates o
 
 This workflow is most useful for updates that require a restart and include important security-related patches (e.g. macOS Catalina 10.15.7 Supplemental), but also applies to security updates that don't require a restart (e.g. Safari 14.0.3). Basically, anything Software Update marks as "recommended" or requiring a restart is in scope.
 
-This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer package when changes are made to the script or to the LaunchDaemon that runs it (despite the name, packages generated with munkipkg don't require Munki; they work great with Jamf Pro). See the [Installer creation](#installer-creation) section below for specific steps on creating the installer for this framework.
+This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer package when changes are made to the script or to the LaunchDaemon that runs it. See the [Installer creation](#installer-creation) section below for specific steps on creating the installer for this framework.
 
 
 ## Requirements
@@ -180,20 +180,24 @@ The above messages use the following dynamic substitutions:
 
 ### Installer creation
 
-Download and install [munkipkg](https://github.com/munki/munki-pkg), if you haven't already. Add the `munkipkg` binary location to your `PATH` or create an alias in your bash profile so that you can reference the command directly.
+1. Install the packaging prerequisites:
 
-If you make changes to the script, we recommend changing the following three things:
+    - Python (does not ship with latest macOS; easiest way to get it is by installing Xcode Command Line Tools: `xcode-select --install`)
+    - [munkipkg](https://github.com/munki/munki-pkg)
 
-- The __Last Modified__ metadata in the script.
-- The __Version__ metadata in the script.
-- The `version` key in the build-info.plist file (to match the script version).
+2. Make all desired modifications to the framework. If you make changes to the script, we recommend changing the following three things:
 
-With munkipkg installed, this command will generate a new installer package in the build folder:
+    - The __Last Modified__ metadata in the script.
+    - The __Version__ metadata in the script.
+    - The `version` key in the build-info.plist file (to match the script version).
 
-    munkipkg /path/to/install-or-defer
+3. With `munkipkg` installed and with `python` in your `$PATH` definitions, this command will generate a new installer package in the build folder (replace paths with the full path to munkipkg and install-or-defer respectively):
 
-The subsequent installer package can be uploaded to Jamf Pro and scoped as specified below in the Jamf Pro setup section.
+    python /path/to/munkipkg /path/to/install-or-defer
 
+4. The subsequent installer package can be uploaded to Jamf Pro and scoped as specified below in the Jamf Pro setup section.
+
+[See the munkipkg README for more information on how to use the tool.](https://github.com/munki/munki-pkg#basic-operation)
 
 ## Jamf Pro setup
 
