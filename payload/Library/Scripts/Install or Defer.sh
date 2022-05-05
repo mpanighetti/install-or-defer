@@ -84,8 +84,8 @@ MSG_UPDATING="Installing updates for %UPDATE_LIST% in the background.<< Your Mac
 
 #################################### TIMING ###################################
 
-# When the user clicks "Defer" the next prompt is delayed by this much time.
-EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
+# When the user clicks "Defer" (or if they dont install it after clicking "Install") the next prompt is delayed by this much time.
+EACH_DEFER=$(( 60 * 60 * 2 )) # (7200 = 2 hours)
 
 # Number of seconds to wait before timing out the Install or Defer prompt.
 # This value should be less than the $EACH_DEFER value.
@@ -118,6 +118,10 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # System Preferences. This is always the behavior on Apple Silicon Macs and
 # cannot be overridden. If undefined or set to false on Intel Macs, the script
 # triggers updates via scripted softwareupdate commands.
+# DisableNotifyMsg (Boolean). When enabled, clicking "Install" will only launch
+# the Software Update pane, it won't present a persistent message nagging users
+# until they upgrade. At the end of the deferral window, however, the persistent
+# message will be displayed.
 # - MaxDeferralTime (Integer). Number of seconds between the first script run
 # and the updates being enforced. Defaults to 259200 (3 days).
 # - MessagingLogo (String). File path to a logo that will be used in messaging.
@@ -152,6 +156,7 @@ SKIP_DEFERRAL_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BU
 SUPPORT_CONTACT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SupportContact 2>"/dev/null")
 WORKDAY_END_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayEndHour 2>"/dev/null")
 WORKDAY_START_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayStartHour 2>"/dev/null")
+DISABLE_NOTIFY_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DisableNotifyMsg 2>"/dev/null")
 
 
 ################################## FUNCTIONS ##################################
@@ -287,34 +292,45 @@ display_act_msg () {
 # defined by previous checks).
 install_updates () {
 
+# Remove before deploying
+echo "DISABLE_NOTIFY_CUSTOM setting is: " $DISABLE_NOTIFY_CUSTOM
+echo "MANUAL_UPDATES_CUSTOM setting is: " $MANUAL_UPDATES_CUSTOM
+echo "DEFER_TIME_LEFT setting is: " $DEFER_TIME_LEFT
+
     # For Apple Silicon Macs, or if specified in a configuration profile
     # setting, inform the user of required updates via a persistent alert and
     # open the Software Update window until the user manually runs updates.
     if [[ "$PLATFORM_ARCH" = "arm64" ]] || [ "$MANUAL_UPDATES_CUSTOM" -eq 1 ]; then
+        if [ "$DISABLE_NOTIFY_CUSTOM" -eq 1 ] && (( DEFER_TIME_LEFT > 0 )) ; then
+        echo "Manual updates enabled, but we're not going to nag users with a persistent notification. Opening Software Update."
+        # Persistent notification is disabled, and there is still deferral time left.
+        # Open System Preferences - Software Update in current user context.
+        CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
+        USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
+        /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
+        else 
+            echo "Manual updates enabled. Displaying persistent alert until updates are applied..."
+            # Loop this check until softwareupdate --list shows no more pending
+            # recommended updates.
+            while [[ $(/usr/sbin/softwareupdate --list) == *"Recommended: YES"* ]]; do
 
-        echo "Manual updates enabled. Displaying persistent alert until updates are applied..."
+                # Clear out jamfHelper alert to prevent pileups.
+                echo "Killing any active jamfHelper notifications..."
+                /usr/bin/killall jamfHelper 2>"/dev/null"
 
-        # Loop this check until softwareupdate --list shows no more pending
-        # recommended updates.
-        while [[ $(/usr/sbin/softwareupdate --list) == *"Recommended: YES"* ]]; do
+                # Display persistent HUD with update prompt message.
+                echo "Prompting to install updates now and opening System Preferences -> Software Update..."
+                "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_NOW_HEADING" -description "$MSG_INSTALL_NOW" -lockHUD &
 
-            # Clear out jamfHelper alert to prevent pileups.
-            echo "Killing any active jamfHelper notifications..."
-            /usr/bin/killall jamfHelper 2>"/dev/null"
+                # Open System Preferences - Software Update in current user context.
+                CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
+                USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
+                /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
 
-            # Display persistent HUD with update prompt message.
-            echo "Prompting to install updates now and opening System Preferences -> Software Update..."
-            "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_NOW_HEADING" -description "$MSG_INSTALL_NOW" -lockHUD &
-
-            # Open System Preferences - Software Update in current user context.
-            CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
-            USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
-            /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
-
-            # Leave the alert up for 60 seconds before looping.
-            sleep 60
-
-        done
+                # Leave the alert up for 60 seconds before looping.
+                sleep 60
+            done
+        fi
 
     else
         # Display HUD with updating message.
@@ -702,6 +718,9 @@ if (( DEFER_TIME_LEFT > 0 )); then
     elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 0 ]]; then
         echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}."
         /usr/bin/defaults delete "$PLIST" UpdatesDeferredUntil 2>"/dev/null"
+        install_updates
+    elif [[ -n "$PROMPT" && "$MANUAL_UPDATES_CUSTOM" -eq 1 && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 0 ]]; then
+        echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}, but we're not updating automatically, so leave the deferral enforcement date preference."
         install_updates
     elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 1 ]]; then
         # Kill the jamfHelper prompt.
