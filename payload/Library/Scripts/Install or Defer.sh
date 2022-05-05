@@ -85,7 +85,7 @@ MSG_UPDATING="Installing updates for %UPDATE_LIST% in the background.<< Your Mac
 #################################### TIMING ###################################
 
 # When the user clicks "Defer" (or if they dont install it after clicking "Install") the next prompt is delayed by this much time.
-EACH_DEFER=$(( 60 * 60 * 2 )) # (7200 = 2 hours)
+EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
 
 # Number of seconds to wait before timing out the Install or Defer prompt.
 # This value should be less than the $EACH_DEFER value.
