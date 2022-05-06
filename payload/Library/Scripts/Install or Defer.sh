@@ -85,7 +85,7 @@ MSG_UPDATING="Installing updates for %UPDATE_LIST% in the background.<< Your Mac
 #################################### TIMING ###################################
 
 # When the user clicks "Defer" (or if they dont install it after clicking "Install") the next prompt is delayed by this much time.
-EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
+EACH_DEFER=$(( 60 * 60 * 2 )) # (14400 = 4 hours)
 
 # Number of seconds to wait before timing out the Install or Defer prompt.
 # This value should be less than the $EACH_DEFER value.
@@ -291,11 +291,6 @@ display_act_msg () {
 # Displays HUD with updating message and installs all security updates (as
 # defined by previous checks).
 install_updates () {
-
-# Remove before deploying
-echo "DISABLE_NOTIFY_CUSTOM setting is: " $DISABLE_NOTIFY_CUSTOM
-echo "MANUAL_UPDATES_CUSTOM setting is: " $MANUAL_UPDATES_CUSTOM
-echo "DEFER_TIME_LEFT setting is: " $DEFER_TIME_LEFT
 
     # For Apple Silicon Macs, or if specified in a configuration profile
     # setting, inform the user of required updates via a persistent alert and
@@ -715,12 +710,18 @@ if (( DEFER_TIME_LEFT > 0 )); then
         kill -9 "$JAMFHELPER_PID"
         echo "❌ ERROR: jamfHelper returned code ${PROMPT} ${PROMPT_ELAPSED_STR}. It's unlikely that the user responded that quickly."
         exit 1
+    elif [[ -n "$PROMPT" && "$MANUAL_UPDATES_CUSTOM" -eq 1 && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 0 ]]; then
+        echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}, but we're not updating automatically, so we'll remind the user if they don't update manually."
+        NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
+        if (( FORCE_DATE < NEXT_PROMPT )); then
+            NEXT_PROMPT="$FORCE_DATE"
+        fi
+        /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
+        echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
+        install_updates
     elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 0 ]]; then
         echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}."
         /usr/bin/defaults delete "$PLIST" UpdatesDeferredUntil 2>"/dev/null"
-        install_updates
-    elif [[ -n "$PROMPT" && "$MANUAL_UPDATES_CUSTOM" -eq 1 && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 0 ]]; then
-        echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}, but we're not updating automatically, so leave the deferral enforcement date preference."
         install_updates
     elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 1 ]]; then
         # Kill the jamfHelper prompt.
