@@ -15,8 +15,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-03-28
-#         Version:  5.0.3
+#   Last Modified:  2022-05-19
+#         Version:  5.0.4
 #
 ###
 
@@ -84,7 +84,8 @@ MSG_UPDATING="Installing updates for %UPDATE_LIST% in the background.<< Your Mac
 
 #################################### TIMING ###################################
 
-# When the user clicks "Defer" the next prompt is delayed by this much time.
+# When the user clicks "Defer" (or if they don't install it after clicking
+# "Install"), the next prompt is delayed by this much time.
 EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
 
 # Number of seconds to wait before timing out the Install or Defer prompt.
@@ -98,6 +99,14 @@ UPDATE_DELAY=$(( 60 * 10 )) # (600 = 10 minutes)
 # The number of seconds to wait between attempting a soft restart and forcing a
 # restart.
 HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
+
+
+######################### CURRENT USER CONTEXT ################################
+
+# Identify current user and UID. Used for any functions that need to run in the
+# context of the logged-in user account.
+CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
+USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
 
 
 ######################## CONFIGURATION PROFILE SETTINGS #######################
@@ -114,6 +123,10 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # - DiagnosticLog (Boolean). Whether to write to a persistent log file at
 # /var/log/install-or-defer.log. If undefined or set to false, the script writes
 # all output to the system log for live diagnostics.
+# - DisablePostInstallAlert (Boolean). Whether to suppress the persistent alert
+# to run updates. Defaults to False. If set to True, clicking the install button
+# will only launch the Software Update pane without displaying a persistent
+# alert to upgrade, until the deadline date is reached.
 # - ManualUpdates (Boolean). Whether to prompt users to run updates manually via
 # System Preferences. This is always the behavior on Apple Silicon Macs and
 # cannot be overridden. If undefined or set to false on Intel Macs, the script
@@ -144,6 +157,7 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 
 DEFER_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DeferButtonLabel 2>"/dev/null")
 DIAGNOSTIC_LOG_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DiagnosticLog 2>"/dev/null")
+DISABLE_POST_INSTALL_ALERT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DisablePostInstallAlert 2>"/dev/null")
 INSTALL_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" InstallButtonLabel 2>"/dev/null")
 MANUAL_UPDATES_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" ManualUpdates 2>"/dev/null")
 MAX_DEFERRAL_TIME_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MaxDeferralTime 2>"/dev/null")
@@ -288,33 +302,44 @@ display_act_msg () {
 install_updates () {
 
     # For Apple Silicon Macs, or if specified in a configuration profile
-    # setting, inform the user of required updates via a persistent alert and
-    # open the Software Update window until the user manually runs updates.
+    # setting, inform the user of required updates and open the Software Update
+    # window to have the user manually run updates.
     if [[ "$PLATFORM_ARCH" = "arm64" ]] || [ "$MANUAL_UPDATES_CUSTOM" -eq 1 ]; then
 
-        echo "Manual updates enabled. Displaying persistent alert until updates are applied..."
+        # If persistent notification is disabled and there is still deferral
+        # time left, just open Software Update once.
+        if [ "$DISABLE_POST_INSTALL_ALERT_CUSTOM" -eq 1 ] && (( DEFER_TIME_LEFT > 0 )) ; then
+        echo "Manual updates enabled, but persistent alerting is disabled. Opening Software Update..."
 
-        # Loop this check until softwareupdate --list shows no more pending
-        # recommended updates.
-        while [[ $(/usr/sbin/softwareupdate --list) == *"Recommended: YES"* ]]; do
+        # Open System Preferences - Software Update in current user context.
+        /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
 
-            # Clear out jamfHelper alert to prevent pileups.
-            echo "Killing any active jamfHelper notifications..."
-            /usr/bin/killall jamfHelper 2>"/dev/null"
+        # Display a persistent alert while opening Software Update and repeat
+        # until the user manually runs updates.
+        else
+            echo "Manual updates enabled. Displaying persistent alert until updates are applied..."
 
-            # Display persistent HUD with update prompt message.
-            echo "Prompting to install updates now and opening System Preferences -> Software Update..."
-            "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_NOW_HEADING" -description "$MSG_INSTALL_NOW" -lockHUD &
+            # Loop this check until softwareupdate --list shows no more pending
+            # recommended updates.
+            while [[ $(/usr/sbin/softwareupdate --list) == *"Recommended: YES"* ]]; do
 
-            # Open System Preferences - Software Update in current user context.
-            CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
-            USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
-            /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
+                # Clear out jamfHelper alert to prevent pileups.
+                echo "Killing any active jamfHelper notifications..."
+                /usr/bin/killall jamfHelper 2>"/dev/null"
 
-            # Leave the alert up for 60 seconds before looping.
-            sleep 60
+                # Display persistent HUD with update prompt message.
+                echo "Prompting to install updates now and opening System Preferences -> Software Update..."
+                "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_NOW_HEADING" -description "$MSG_INSTALL_NOW" -lockHUD &
 
-        done
+                # Open System Preferences - Software Update in current user context.
+                /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
+
+                # Leave the alert up for 60 seconds before looping.
+                sleep 60
+
+            done
+
+        fi
 
     else
         # Display HUD with updating message.
@@ -390,8 +415,6 @@ trigger_restart () {
 
     # Immediately attempt a "soft" restart.
     echo "Attempting a \"soft\" ${1}..."
-    CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
-    USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
     /bin/launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to ${1}"
 
     # After specified delay, kill all apps forcibly, which clears the way for
@@ -694,51 +717,88 @@ if (( DEFER_TIME_LEFT > 0 )); then
     # https://gist.github.com/homebysix/18c1a07a284089e7f279#file-jamfhelper_help-txt-L72-L84
 
     # Take action based on the return code of the jamfHelper.
-    if [[ -n "$PROMPT" && "$PROMPT_ELAPSED_SEC" -eq 0 ]]; then
-        # Kill the jamfHelper prompt.
-        kill -9 "$JAMFHELPER_PID"
-        echo "❌ ERROR: jamfHelper returned code ${PROMPT} ${PROMPT_ELAPSED_STR}. It's unlikely that the user responded that quickly."
-        exit 1
-    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 0 ]]; then
-        echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}."
-        /usr/bin/defaults delete "$PLIST" UpdatesDeferredUntil 2>"/dev/null"
-        install_updates
-    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 1 ]]; then
-        # Kill the jamfHelper prompt.
-        kill -9 "$JAMFHELPER_PID"
-        echo "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
-        exit 1
-    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 2 ]]; then
-        echo "User clicked ${DEFER_BUTTON} ${PROMPT_ELAPSED_STR}."
-        NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
-        if (( FORCE_DATE < NEXT_PROMPT )); then
-            NEXT_PROMPT="$FORCE_DATE"
+    if [[ -n "$PROMPT" ]]; then
+
+        # Zero response time is erroneous, so we'll bail out.
+        if [[ "$PROMPT_ELAPSED_SEC" -eq 0 ]]; then
+
+            kill -9 "$JAMFHELPER_PID"
+            echo "❌ ERROR: jamfHelper returned code ${PROMPT} ${PROMPT_ELAPSED_STR}. It's unlikely that the user responded that quickly."
+            exit 1
+
+        # User clicked the install button.
+        elif [[ "$PROMPT" -eq 0 ]]; then
+
+            echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}."
+
+            # If manual updates are enabled,
+            # track the next deferral before proceeding.
+            if [[ "$MANUAL_UPDATES_CUSTOM" -eq 1 ]]; then
+                echo "Manual updates are enabled, so we'll continue to track the next deferral date in case the update isn't run in a timely manner."
+                NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
+                if (( FORCE_DATE < NEXT_PROMPT )); then
+                    NEXT_PROMPT="$FORCE_DATE"
+                fi
+                /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
+                echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
+            fi
+            install_updates
+
+        # jamfHelper failed to launch.
+        elif [[ "$PROMPT" -eq 1 ]]; then
+
+            kill -9 "$JAMFHELPER_PID"
+            echo "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
+            exit 1
+
+        # User clicked the defer button.
+        elif [[ "$PROMPT" -eq 2 ]]; then
+
+            echo "User clicked ${DEFER_BUTTON} ${PROMPT_ELAPSED_STR}."
+            NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
+            if (( FORCE_DATE < NEXT_PROMPT )); then
+                NEXT_PROMPT="$FORCE_DATE"
+            fi
+            /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
+            echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
+
+        # User clicked the jamfHelper exit button.
+        elif [[ "$PROMPT" -eq 239 ]]; then
+
+            echo "User deferred by exiting jamfHelper ${PROMPT_ELAPSED_STR}."
+            NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
+            if (( FORCE_DATE < NEXT_PROMPT )); then
+                NEXT_PROMPT="$FORCE_DATE"
+            fi
+            /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
+            echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
+
+        # Unexpected return code from jamfHelper.
+        elif [[ "$PROMPT" -gt 2 ]]; then
+
+            # Kill the jamfHelper prompt.
+            kill -9 "$JAMFHELPER_PID"
+            echo "❌ ERROR: jamfHelper produced an unexpected value (code ${PROMPT}) ${PROMPT_ELAPSED_STR}."
+            exit 1
+
         fi
-        /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
-        echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
-    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 239 ]]; then
-        echo "User deferred by exiting jamfHelper ${PROMPT_ELAPSED_STR}."
-        NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
-        if (( FORCE_DATE < NEXT_PROMPT )); then
-            NEXT_PROMPT="$FORCE_DATE"
-        fi
-        /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
-        echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
-    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -gt 2 ]]; then
-        # Kill the jamfHelper prompt.
-        kill -9 "$JAMFHELPER_PID"
-        echo "❌ ERROR: jamfHelper produced an unexpected value (code ${PROMPT}) ${PROMPT_ELAPSED_STR}."
-        exit 1
-    elif [[ -z "$PROMPT" ]]; then # $PROMPT is not defined
+
+    # $PROMPT is not defined.
+    elif [[ -z "$PROMPT" ]]; then
+
         # Kill the jamfHelper prompt.
         kill -9 "$JAMFHELPER_PID"
         echo "❌ ERROR: jamfHelper returned no value ${PROMPT_ELAPSED_STR}. ${INSTALL_BUTTON}/${DEFER_BUTTON} response was not captured. This may be because the user logged out without clicking ${INSTALL_BUTTON} or ${DEFER_BUTTON}."
         exit 1
+
+    # Unexpected response.
     else
+
         # Kill the jamfHelper prompt.
         kill -9 "$JAMFHELPER_PID"
         echo "❌ ERROR: Something went wrong. Check the jamfHelper return code (${PROMPT}) and prompt elapsed seconds (${PROMPT_ELAPSED_SEC}) for further information."
         exit 1
+
     fi
 
 else
