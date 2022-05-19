@@ -781,6 +781,8 @@ if (( DEFER_TIME_LEFT > 0 )); then
             echo "❌ ERROR: jamfHelper produced an unexpected value (code ${PROMPT}) ${PROMPT_ELAPSED_STR}."
             exit 1
 
+        fi
+
     # $PROMPT is not defined.
     elif [[ -z "$PROMPT" ]]; then
 
