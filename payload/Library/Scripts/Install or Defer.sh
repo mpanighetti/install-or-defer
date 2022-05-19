@@ -101,6 +101,14 @@ UPDATE_DELAY=$(( 60 * 10 )) # (600 = 10 minutes)
 HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 
 
+######################### CURRENT USER CONTEXT ################################
+
+# Identify current user and UID. Used for any functions that need to run in the
+# context of the logged-in user account.
+CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
+USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
+
+
 ######################## CONFIGURATION PROFILE SETTINGS #######################
 
 # Checks for whether any custom settings have been applied via a configuration
@@ -304,8 +312,6 @@ install_updates () {
         echo "Manual updates enabled, but persistent alerting is disabled. Opening Software Update..."
 
         # Open System Preferences - Software Update in current user context.
-        CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
-        USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
         /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
 
         # Display a persistent alert while opening Software Update and repeat
@@ -326,8 +332,6 @@ install_updates () {
                 "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_NOW_HEADING" -description "$MSG_INSTALL_NOW" -lockHUD &
 
                 # Open System Preferences - Software Update in current user context.
-                CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
-                USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
                 /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
 
                 # Leave the alert up for 60 seconds before looping.
@@ -411,8 +415,6 @@ trigger_restart () {
 
     # Immediately attempt a "soft" restart.
     echo "Attempting a \"soft\" ${1}..."
-    CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
-    USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
     /bin/launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to ${1}"
 
     # After specified delay, kill all apps forcibly, which clears the way for
