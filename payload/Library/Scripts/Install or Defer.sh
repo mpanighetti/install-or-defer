@@ -15,8 +15,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-03-28
-#         Version:  5.0.3
+#   Last Modified:  2022-05-19
+#         Version:  5.0.4
 #
 ###
 
@@ -84,7 +84,8 @@ MSG_UPDATING="Installing updates for %UPDATE_LIST% in the background.<< Your Mac
 
 #################################### TIMING ###################################
 
-# When the user clicks "Defer" (or if they dont install it after clicking "Install") the next prompt is delayed by this much time.
+# When the user clicks "Defer" (or if they don't install it after clicking
+# "Install"), the next prompt is delayed by this much time.
 EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
 
 # Number of seconds to wait before timing out the Install or Defer prompt.
@@ -114,14 +115,14 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 # - DiagnosticLog (Boolean). Whether to write to a persistent log file at
 # /var/log/install-or-defer.log. If undefined or set to false, the script writes
 # all output to the system log for live diagnostics.
+# - DisablePostInstallAlert (Boolean). Whether to suppress the persistent alert
+# to run updates. Defaults to False. If set to True, clicking the install button
+# will only launch the Software Update pane without displaying a persistent
+# alert to upgrade, until the deadline date is reached.
 # - ManualUpdates (Boolean). Whether to prompt users to run updates manually via
 # System Preferences. This is always the behavior on Apple Silicon Macs and
 # cannot be overridden. If undefined or set to false on Intel Macs, the script
 # triggers updates via scripted softwareupdate commands.
-# DisableNotifyMsg (Boolean). When enabled, clicking "Install" will only launch
-# the Software Update pane, it won't present a persistent message nagging users
-# until they upgrade. At the end of the deferral window, however, the persistent
-# message will be displayed.
 # - MaxDeferralTime (Integer). Number of seconds between the first script run
 # and the updates being enforced. Defaults to 259200 (3 days).
 # - MessagingLogo (String). File path to a logo that will be used in messaging.
@@ -148,6 +149,7 @@ HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
 
 DEFER_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DeferButtonLabel 2>"/dev/null")
 DIAGNOSTIC_LOG_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DiagnosticLog 2>"/dev/null")
+DISABLE_POST_INSTALL_ALERT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DisablePostInstallAlert 2>"/dev/null")
 INSTALL_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" InstallButtonLabel 2>"/dev/null")
 MANUAL_UPDATES_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" ManualUpdates 2>"/dev/null")
 MAX_DEFERRAL_TIME_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MaxDeferralTime 2>"/dev/null")
@@ -156,7 +158,6 @@ SKIP_DEFERRAL_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BU
 SUPPORT_CONTACT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SupportContact 2>"/dev/null")
 WORKDAY_END_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayEndHour 2>"/dev/null")
 WORKDAY_START_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayStartHour 2>"/dev/null")
-DISABLE_NOTIFY_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DisableNotifyMsg 2>"/dev/null")
 
 
 ################################## FUNCTIONS ##################################
@@ -293,18 +294,25 @@ display_act_msg () {
 install_updates () {
 
     # For Apple Silicon Macs, or if specified in a configuration profile
-    # setting, inform the user of required updates via a persistent alert and
-    # open the Software Update window until the user manually runs updates.
+    # setting, inform the user of required updates and open the Software Update
+    # window to have the user manually run updates.
     if [[ "$PLATFORM_ARCH" = "arm64" ]] || [ "$MANUAL_UPDATES_CUSTOM" -eq 1 ]; then
-        if [ "$DISABLE_NOTIFY_CUSTOM" -eq 1 ] && (( DEFER_TIME_LEFT > 0 )) ; then
-        echo "Manual updates enabled, but we're not going to nag users with a persistent notification. Opening Software Update."
-        # Persistent notification is disabled, and there is still deferral time left.
+
+        # If persistent notification is disabled and there is still deferral
+        # time left, just open Software Update once.
+        if [ "$DISABLE_POST_INSTALL_ALERT_CUSTOM" -eq 1 ] && (( DEFER_TIME_LEFT > 0 )) ; then
+        echo "Manual updates enabled, but persistent alerting is disabled. Opening Software Update..."
+
         # Open System Preferences - Software Update in current user context.
         CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
         USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
         /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
-        else 
+
+        # Display a persistent alert while opening Software Update and repeat
+        # until the user manually runs updates.
+        else
             echo "Manual updates enabled. Displaying persistent alert until updates are applied..."
+
             # Loop this check until softwareupdate --list shows no more pending
             # recommended updates.
             while [[ $(/usr/sbin/softwareupdate --list) == *"Recommended: YES"* ]]; do
@@ -324,7 +332,9 @@ install_updates () {
 
                 # Leave the alert up for 60 seconds before looping.
                 sleep 60
+
             done
+
         fi
 
     else
