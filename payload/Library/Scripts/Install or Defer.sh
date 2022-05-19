@@ -717,60 +717,86 @@ if (( DEFER_TIME_LEFT > 0 )); then
     # https://gist.github.com/homebysix/18c1a07a284089e7f279#file-jamfhelper_help-txt-L72-L84
 
     # Take action based on the return code of the jamfHelper.
-    if [[ -n "$PROMPT" && "$PROMPT_ELAPSED_SEC" -eq 0 ]]; then
-        # Kill the jamfHelper prompt.
-        kill -9 "$JAMFHELPER_PID"
-        echo "❌ ERROR: jamfHelper returned code ${PROMPT} ${PROMPT_ELAPSED_STR}. It's unlikely that the user responded that quickly."
-        exit 1
-    elif [[ -n "$PROMPT" && "$MANUAL_UPDATES_CUSTOM" -eq 1 && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 0 ]]; then
-        echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}, but we're not updating automatically, so we'll remind the user if they don't update manually."
-        NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
-        if (( FORCE_DATE < NEXT_PROMPT )); then
-            NEXT_PROMPT="$FORCE_DATE"
-        fi
-        /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
-        echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
-        install_updates
-    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 0 ]]; then
-        echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}."
-        /usr/bin/defaults delete "$PLIST" UpdatesDeferredUntil 2>"/dev/null"
-        install_updates
-    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 1 ]]; then
-        # Kill the jamfHelper prompt.
-        kill -9 "$JAMFHELPER_PID"
-        echo "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
-        exit 1
-    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 2 ]]; then
-        echo "User clicked ${DEFER_BUTTON} ${PROMPT_ELAPSED_STR}."
-        NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
-        if (( FORCE_DATE < NEXT_PROMPT )); then
-            NEXT_PROMPT="$FORCE_DATE"
-        fi
-        /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
-        echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
-    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -eq 239 ]]; then
-        echo "User deferred by exiting jamfHelper ${PROMPT_ELAPSED_STR}."
-        NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
-        if (( FORCE_DATE < NEXT_PROMPT )); then
-            NEXT_PROMPT="$FORCE_DATE"
-        fi
-        /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
-        echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
-    elif [[ -n "$PROMPT" && "$DEFER_TIME_LEFT" -gt 0 && "$PROMPT" -gt 2 ]]; then
-        # Kill the jamfHelper prompt.
-        kill -9 "$JAMFHELPER_PID"
-        echo "❌ ERROR: jamfHelper produced an unexpected value (code ${PROMPT}) ${PROMPT_ELAPSED_STR}."
-        exit 1
-    elif [[ -z "$PROMPT" ]]; then # $PROMPT is not defined
+    if [[ -n "$PROMPT" ]]; then
+
+        # Zero response time is erroneous, so we'll bail out.
+        if [[ "$PROMPT_ELAPSED_SEC" -eq 0 ]]; then
+
+            kill -9 "$JAMFHELPER_PID"
+            echo "❌ ERROR: jamfHelper returned code ${PROMPT} ${PROMPT_ELAPSED_STR}. It's unlikely that the user responded that quickly."
+            exit 1
+
+        # User clicked the install button.
+        elif [[ "$PROMPT" -eq 0 ]]; then
+
+            echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}."
+
+            # If manual updates are enabled,
+            # track the next deferral before proceeding.
+            if [[ "$MANUAL_UPDATES_CUSTOM" -eq 1 ]]; then
+                echo "Manual updates are enabled, so we'll continue to track the next deferral date in case the update isn't run in a timely manner."
+                NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
+                if (( FORCE_DATE < NEXT_PROMPT )); then
+                    NEXT_PROMPT="$FORCE_DATE"
+                fi
+                /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
+                echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
+            fi
+            install_updates
+
+        # jamfHelper failed to launch.
+        elif [[ "$PROMPT" -eq 1 ]]; then
+
+            kill -9 "$JAMFHELPER_PID"
+            echo "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
+            exit 1
+
+        # User clicked the defer button.
+        elif [[ "$PROMPT" -eq 2 ]]; then
+
+            echo "User clicked ${DEFER_BUTTON} ${PROMPT_ELAPSED_STR}."
+            NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
+            if (( FORCE_DATE < NEXT_PROMPT )); then
+                NEXT_PROMPT="$FORCE_DATE"
+            fi
+            /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
+            echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
+
+        # User clicked the jamfHelper exit button.
+        elif [[ "$PROMPT" -eq 239 ]]; then
+
+            echo "User deferred by exiting jamfHelper ${PROMPT_ELAPSED_STR}."
+            NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
+            if (( FORCE_DATE < NEXT_PROMPT )); then
+                NEXT_PROMPT="$FORCE_DATE"
+            fi
+            /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
+            echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
+
+        # Unexpected return code from jamfHelper.
+        elif [[ "$PROMPT" -gt 2 ]]; then
+
+            # Kill the jamfHelper prompt.
+            kill -9 "$JAMFHELPER_PID"
+            echo "❌ ERROR: jamfHelper produced an unexpected value (code ${PROMPT}) ${PROMPT_ELAPSED_STR}."
+            exit 1
+
+    # $PROMPT is not defined.
+    elif [[ -z "$PROMPT" ]]; then
+
         # Kill the jamfHelper prompt.
         kill -9 "$JAMFHELPER_PID"
         echo "❌ ERROR: jamfHelper returned no value ${PROMPT_ELAPSED_STR}. ${INSTALL_BUTTON}/${DEFER_BUTTON} response was not captured. This may be because the user logged out without clicking ${INSTALL_BUTTON} or ${DEFER_BUTTON}."
         exit 1
+
+    # Unexpected response.
     else
+
         # Kill the jamfHelper prompt.
         kill -9 "$JAMFHELPER_PID"
         echo "❌ ERROR: Something went wrong. Check the jamfHelper return code (${PROMPT}) and prompt elapsed seconds (${PROMPT_ELAPSED_SEC}) for further information."
         exit 1
+
     fi
 
 else
