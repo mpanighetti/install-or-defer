@@ -621,12 +621,11 @@ MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT
 MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
 MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
 
-# Check for updates, exit if none found, otherwise continue.
-check_for_updates
-
 # Perform first-run tasks, including calculating deadline.
 FORCE_DATE=$(/usr/bin/defaults read "$PLIST" UpdatesForcedAfter 2>"/dev/null")
 if [[ -z "$FORCE_DATE" || "$FORCE_DATE" -gt $(( $(/bin/date +%s) + MAX_DEFERRAL_TIME )) ]]; then
+    # Check for updates, exit if none found, otherwise continue.
+    check_for_updates
     FORCE_DATE=$(( $(/bin/date +%s) + MAX_DEFERRAL_TIME ))
     /usr/bin/defaults write "$PLIST" UpdatesForcedAfter -int "$FORCE_DATE"
 fi
