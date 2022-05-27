@@ -632,6 +632,7 @@ if [[ -z "$FORCE_DATE" || "$FORCE_DATE" -gt $(( $(/bin/date +%s) + MAX_DEFERRAL_
     FORCE_DATE=$(( $(/bin/date +%s) + MAX_DEFERRAL_TIME ))
     /usr/bin/defaults write "$PLIST" UpdatesForcedAfter -int "$FORCE_DATE"
 else 
+    # Read in the update_list from the preferences file
     UPDATE_LIST=$(/usr/bin/defaults read "$PLIST" UPDATE_LIST 2>"/dev/null")
 fi
 
