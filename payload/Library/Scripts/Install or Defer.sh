@@ -279,6 +279,9 @@ check_for_updates () {
     MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
     MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
     MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
+    
+    # Add variables to PLIST so they can be accessed when the script re-runs
+    /usr/bin/defaults write "$PLIST" UPDATE_LIST -string "$UPDATE_LIST"
 
 }
 
@@ -628,6 +631,8 @@ if [[ -z "$FORCE_DATE" || "$FORCE_DATE" -gt $(( $(/bin/date +%s) + MAX_DEFERRAL_
     check_for_updates
     FORCE_DATE=$(( $(/bin/date +%s) + MAX_DEFERRAL_TIME ))
     /usr/bin/defaults write "$PLIST" UpdatesForcedAfter -int "$FORCE_DATE"
+else 
+    UPDATE_LIST=$(/usr/bin/defaults read "$PLIST" UPDATE_LIST 2>"/dev/null")
 fi
 
 # If a workday start and end hour have been defined and the deadline currently
