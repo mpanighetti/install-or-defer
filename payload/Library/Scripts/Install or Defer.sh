@@ -847,7 +847,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
         kill -9 "$JAMFHELPER_PID"
         echo "❌ ERROR: Something went wrong. Check the jamfHelper return code (${PROMPT}) and prompt elapsed seconds (${PROMPT_ELAPSED_SEC}) for further information."
         exit 1
-        
+
     fi
 
 else
