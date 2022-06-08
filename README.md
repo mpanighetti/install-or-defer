@@ -69,18 +69,38 @@ This framework is designed to work "out of the box" without any modification, bu
 
 You can customize many settings using a configuration profile targeting the `$BUNDLE_ID` preference domain. This allows you to apply different configurations to different groups of Macs (e.g. a dedicated test group could have shorter deferral times), and lets you make changes to these settings on the fly without repackaging and redeploying the script. The following settings can be defined via configuration profile keys:
 
+
+#### Keys
+
+##### Alerting
+
 | Key                      | Type             | Default Value |Minimum Version | Description |
 |--------------------------|------------------|---------------|----------------|-------------|
 |`InstallButtonLabel`      |string|Install|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The label of the install button. Keep this string short since `jamfHelper` will cut off longer button labels.|
 |`DeferButtonLabel`        |string|Defer|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The label of the defer button. Keep this string short since `jamfHelper` will cut off longer button labels.|
-|`DiagnosticLog`           |boolean|`false`|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|Whether to write to a persistent log file at `/var/log/install-or-defer.log`. If undefined or set to false, the script writes all output to the system log for live diagnostics.|
-|`ManualUpdates`           |boolean|Apple Silicon: `true`<br />Intel: `false`|[5.0.3](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.3)|Whether to prompt users to run updates manually via System Preferences. This is always the behavior on Apple Silicon Macs and cannot be overridden. If undefined or set to false on Intel Macs, the script triggers updates via scripted `softwareupdate` commands.|
-|`MaxDeferralTime`         |integer|`259200`|[2.2](https://github.com/mpanighetti/install-or-defer/releases/tag/v2.2)|Number of seconds between the first script run and the updates being enforced. Defaults to 259200 (3 days).|
+|`DisablePostInstallAlert` |boolean|`false`|[5.0.4](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.4)|Whether to suppress the persistent alert to run updates. If set to True, clicking the install button will only launch the Software Update pane without displaying a persistent alert to upgrade, until the deadline date is reached.|
 |`MessagingLogo`           |string|Software Update icon|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|File path to a logo that will be used in messaging. Recommend 512px, PNG format.|
-|`SkipDeferral`            |boolean|`false`|[2.2](https://github.com/mpanighetti/install-or-defer/releases/tag/v2.2)|Whether to bypass deferral time entirely and skip straight to update enforcement (useful for script testing purposes). If set to true, this setting supersedes any values set for `MaxDeferralTime`.|
 |`SupportContact`          |string|IT|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|Contact information for technical support included in messaging alerts. Recommend using a team name (e.g. "Technical Support"), email address (e.g. "support@contoso.com"), or chat channel (e.g. "#technical-support").|
+
+##### Timing
+
+| Key                      | Type             | Default Value |Minimum Version | Description |
+|--------------------------|------------------|---------------|----------------|-------------|
+|`DeferralPeriod`          |integer|`14400`|[5.0.5](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.5)|Number of seconds between when the user clicks "Defer" and the next prompt appears. This value must be less than the `MaxDeferralTime` value.|
+|`HardRestartDelay`        |integer|`300`|[5.0.5](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.5)|Number of seconds to wait between attempting a soft restart and forcing a restart.|
+|`MaxDeferralTime`         |integer|`259200`|[2.2](https://github.com/mpanighetti/install-or-defer/releases/tag/v2.2)|Number of seconds between the first script run and the updates being enforced. Defaults to 259200 (3 days).|
+|`PromptTimeout`           |integer|`3600`|[5.0.5](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.5)|Number of seconds to wait before timing out the Install or Defer prompt. This value must be less than the `DeferralPeriod` value.|
+|`SkipDeferral`            |boolean|`false`|[2.2](https://github.com/mpanighetti/install-or-defer/releases/tag/v2.2)|Whether to bypass deferral time entirely and skip straight to update enforcement (useful for script testing purposes). If set to true, this setting supersedes any values set for `MaxDeferralTime`.|
+|`UpdateDelay`             |integer|`600`|[5.0.5](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.5)|Number of seconds to wait between displaying the "install updates" message and applying updates, then attempting a soft restart.|
 |`WorkdayStartHour`        |integer||[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The hour that a workday starts in your organization. This value must be an integer between 0 and 22, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday. If `WorkdayStartHour` or `WorkdayEndHour` are undefined, deadlines will be scheduled based on maximum deferral time and not account for the time of day that the deadline lands.|
 |`WorkdayEndHour`          |integer||[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The hour that a workday ends in your organization. This value must be an integer between 1 and 23, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday. If `WorkdayStartHour` or `WorkdayEndHour` are undefined, deadlines will be scheduled based on maximum deferral time and not account for the time of day that the deadline lands.|
+
+##### Backend
+
+| Key                      | Type             | Default Value |Minimum Version | Description |
+|--------------------------|------------------|---------------|----------------|-------------|
+|`DiagnosticLog`           |boolean|`false`|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|Whether to write to a persistent log file at `/var/log/install-or-defer.log`. If undefined or set to false, the script writes all output to the system log for live diagnostics.|
+|`ManualUpdates`           |boolean|Apple Silicon: `true`<br />Intel: `false`|[5.0.3](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.3)|Whether to prompt users to run updates manually via System Preferences. This is always the behavior on Apple Silicon Macs and cannot be overridden. If undefined or set to false on Intel Macs, the script triggers updates via scripted `softwareupdate` commands.|
 
 #### Create a configuration profile in Jamf Pro
 
@@ -158,25 +178,6 @@ The above messages use the following dynamic substitutions:
 - `%UPDATE_LIST%` will be automatically replaced with a comma-separated list of all recommended updates found in a Software Update check.
 - The section in the `{{double curly brackets}}` will be removed when this message is displayed for the final time before the deferral deadline.
 - The sections in the `<<double comparison operators>>` will be removed if a restart is not required for the pending updates.
-
-#### Timing
-
-- `EACH_DEFER`
-
-    When the user clicks "Defer" the next prompt is delayed by this much time.
-
-- `PROMPT_TIMEOUT`
-
-    The number of seconds to wait before timing out each Install or Defer prompt. This value should be less than the `EACH_DEFER` value.
-
-- `UPDATE_DELAY`
-
-    The number of seconds to wait between displaying the "run updates" message and applying updates, then attempting a soft restart.
-
-- `HARD_RESTART_DELAY`
-
-    The number of seconds to wait between attempting a soft restart and forcing a restart.
-
 
 ### Installer creation
 
