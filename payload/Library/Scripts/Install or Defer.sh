@@ -346,18 +346,20 @@ display_act_msg () {
 
 }
 
-# Displays HUD with updating message and installs all security updates (as
-# defined by previous checks).
+# Opens System Preferences -> Software Update, optionally prompting user to
+# install updates via HUD message and automatically applying the update when
+# able.
 install_updates () {
 
     # If manual updates are enabled, inform the user of required updates and
     # open the Software Update window.
     if [[ "$MANUAL_UPDATES" = "True" ]]; then
 
+        echo "Script has been configured to have user run updates manually."
         # If persistent notification is disabled and there is still deferral
         # time left, just open Software Update once.
         if [[ "$DISABLE_POST_INSTALL_ALERT_CUSTOM" -eq 1 ]] && (( DEFER_TIME_LEFT > 0 )) ; then
-        echo "Manual updates enabled, but persistent alerting is disabled. Opening Software Update..."
+        echo "Persistent alerting is disabled with deferral time remaining. Opening Software Update a single time..."
 
         # Open System Preferences -> Software Update in current user context.
         /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
@@ -365,7 +367,7 @@ install_updates () {
         # Display a persistent alert while opening Software Update and repeat
         # until the user manually runs updates.
         else
-            echo "Manual updates enabled. Displaying persistent alert until updates are applied..."
+            echo "Displaying persistent alert until updates are applied..."
 
             # Loop this check until softwareupdate --list shows no more pending
             # recommended updates.
