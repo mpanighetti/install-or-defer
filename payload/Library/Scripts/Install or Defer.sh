@@ -350,10 +350,9 @@ display_act_msg () {
 # defined by previous checks).
 install_updates () {
 
-    # For Apple Silicon Macs, or if specified in a configuration profile
-    # setting, inform the user of required updates and open the Software Update
-    # window to have the user manually run updates.
-    if [[ "$PLATFORM_ARCH" = "arm64" ]] || [[ "$MANUAL_UPDATES" = "True" ]]; then
+    # If manual updates are enabled, inform the user of required updates and
+    # open the Software Update window.
+    if [[ "$MANUAL_UPDATES" = "True" ]]; then
 
         # If persistent notification is disabled and there is still deferral
         # time left, just open Software Update once.
@@ -636,7 +635,9 @@ echo "Defer button label: ${DEFER_BUTTON}"
 
 # Whether to have the user run updates manually (default to false on Intel Macs,
 # always true on Apple Silicon Macs.)
-if [[ -n "$MANUAL_UPDATES_CUSTOM" ]]; then
+if [[ "$PLATFORM_ARCH" = "arm64" ]]; then
+    MANUAL_UPDATES="True"
+elif [[ -n "$MANUAL_UPDATES_CUSTOM" ]]; then
     if [[ "$MANUAL_UPDATES_CUSTOM" -eq 1 ]]; then
         MANUAL_UPDATES="True"
     elif [[ "$MANUAL_UPDATES_CUSTOM" -eq 0 ]]; then
