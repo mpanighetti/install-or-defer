@@ -175,6 +175,7 @@ MANUAL_UPDATES_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${B
 
 echo "Calculating script timing..."
 
+# Set maximum deferral to 0 if deferral skip is enabled.
 if [[ "$SKIP_DEFERRAL_CUSTOM" -eq 1 ]]; then
     MAX_DEFERRAL_TIME=0
 else
@@ -250,7 +251,7 @@ restart_softwareupdate_daemon () {
         /usr/bin/defaults delete "/Library/Preferences/com.apple.SoftwareUpdate.plist"
         /bin/rm -f "/Library/Preferences/com.apple.SoftwareUpdate.plist"
         # Write macOS beta channel catalog URL back to the plist if previously defined.
-        if [ -n "$SOFTWAREUPDATE_CATALOG_URL" ]; then
+        if [[ -n "$SOFTWAREUPDATE_CATALOG_URL" ]]; then
             /usr/bin/defaults write "/Library/Preferences/com.apple.SoftwareUpdate" CatalogURL -string "$SOFTWAREUPDATE_CATALOG_URL"
             echo "Restored macOS beta channel catalog URL."
         fi
@@ -352,11 +353,11 @@ install_updates () {
     # For Apple Silicon Macs, or if specified in a configuration profile
     # setting, inform the user of required updates and open the Software Update
     # window to have the user manually run updates.
-    if [[ "$PLATFORM_ARCH" = "arm64" ]] || [ "$MANUAL_UPDATES" = "True" ]; then
+    if [[ "$PLATFORM_ARCH" = "arm64" ]] || [[ "$MANUAL_UPDATES" = "True" ]]; then
 
         # If persistent notification is disabled and there is still deferral
         # time left, just open Software Update once.
-        if [ "$DISABLE_POST_INSTALL_ALERT_CUSTOM" -eq 1 ] && (( DEFER_TIME_LEFT > 0 )) ; then
+        if [[ "$DISABLE_POST_INSTALL_ALERT_CUSTOM" -eq 1 ]] && (( DEFER_TIME_LEFT > 0 )) ; then
         echo "Manual updates enabled, but persistent alerting is disabled. Opening Software Update..."
 
         # Open System Preferences -> Software Update in current user context.
@@ -560,7 +561,7 @@ PLATFORM_ARCH="$(/usr/bin/arch)"
 # /Library/Preferences/com.apple.SoftwareUpdate.plist if that file is reset in
 # the restart_softwareupdate_daemon function.
 SOFTWAREUPDATE_CATALOG_URL=$(/usr/bin/defaults read "/Library/Preferences/com.apple.SoftwareUpdate" CatalogURL 2>"/dev/null")
-if [ -n "$SOFTWAREUPDATE_CATALOG_URL" ]; then
+if [[ -n "$SOFTWAREUPDATE_CATALOG_URL" ]]; then
     echo "Found macOS beta channel catalog URL, will retain this setting whenever com.apple.SoftwareUpdate is reset: ${SOFTWAREUPDATE_CATALOG_URL}"
 fi
 
@@ -618,14 +619,14 @@ fi
 
 # Validate configuration profile-enforced settings or use script defaults accordingly.
 # Whether to use custom labels for the install/defer buttons (default to "Install" and "Defer").
-if [ -n "$INSTALL_BUTTON_CUSTOM" ]; then
+if [[ -n "$INSTALL_BUTTON_CUSTOM" ]]; then
     INSTALL_BUTTON="$INSTALL_BUTTON_CUSTOM"
 else
     echo "Install button label undefined by administrator. Using default value."
     INSTALL_BUTTON="Install"
 fi
 echo "Install button label: ${INSTALL_BUTTON}"
-if [ -n "$DEFER_BUTTON_CUSTOM" ]; then
+if [[ -n "$DEFER_BUTTON_CUSTOM" ]]; then
     DEFER_BUTTON="$DEFER_BUTTON_CUSTOM"
 else
     echo "Defer button label undefined by administrator. Using default value."
@@ -635,15 +636,18 @@ echo "Defer button label: ${DEFER_BUTTON}"
 
 # Whether to have the user run updates manually (default to false on Intel Macs,
 # always true on Apple Silicon Macs.)
-if [ -n "$MANUAL_UPDATES_CUSTOM" ]; then
-    if [ "$MANUAL_UPDATES_CUSTOM" -eq 1 ]; then
+if [[ -n "$MANUAL_UPDATES_CUSTOM" ]]; then
+    if [[ "$MANUAL_UPDATES_CUSTOM" -eq 1 ]]; then
         MANUAL_UPDATES="True"
-    elif [ "$MANUAL_UPDATES_CUSTOM" -eq 0 ]; then
+    elif [[ "$MANUAL_UPDATES_CUSTOM" -eq 0 ]]; then
         MANUAL_UPDATES="False"
     else
-        echo "Manual update preference undefined by administrator, or not set to a valid boolean. Using default value."
+        echo "Manual update preference not set to a valid boolean. Using default value."
         MANUAL_UPDATES="False"
     fi
+else
+    echo "Manual update preference undefined by administrator. Using default value."
+    MANUAL_UPDATES="False"
 fi
 echo "Manual updates: ${MANUAL_UPDATES}"
 
@@ -658,7 +662,7 @@ fi
 echo "Messaging logo: ${MESSAGING_LOGO}"
 
 # Populate support contact information (default to "IT").
-if [ -n "$SUPPORT_CONTACT_CUSTOM" ]; then
+if [[ -n "$SUPPORT_CONTACT_CUSTOM" ]]; then
     SUPPORT_CONTACT="$SUPPORT_CONTACT_CUSTOM"
 else
     SUPPORT_CONTACT="IT"
@@ -681,7 +685,7 @@ fi
 
 # If a workday start and end hour have been defined and the deadline currently
 # occurs during the workday, shift it forward to the end of the workday.
-if [ -n "$WORKDAY_START_HR_CUSTOM" ] && [ -n "$WORKDAY_END_HR_CUSTOM" ]; then
+if [[ -n "$WORKDAY_START_HR_CUSTOM" ]] && [[ -n "$WORKDAY_END_HR_CUSTOM" ]]; then
     FORCE_DATE_HR=$(/bin/date -jf "%s" "+%H" "$FORCE_DATE")
     if [[ "$FORCE_DATE_HR" -ge "$WORKDAY_START_HR_CUSTOM" ]] && [[ "$FORCE_DATE_HR" -lt "$WORKDAY_END_HR_CUSTOM" ]]; then
         FORCE_DATE_YMD=$(/bin/date -jf "%s" "+%Y-%m-%d" "$FORCE_DATE")
