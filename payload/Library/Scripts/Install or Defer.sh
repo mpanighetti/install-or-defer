@@ -15,7 +15,7 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-06-08
+#   Last Modified:  2022-06-09
 #         Version:  5.0.5
 #
 ###
@@ -645,7 +645,7 @@ if [ -n "$MANUAL_UPDATES_CUSTOM" ]; then
         MANUAL_UPDATES="False"
     fi
 fi
-echo "Maximum deferral time: $(convert_seconds "$MAX_DEFERRAL_TIME")"
+echo "Manual updates: ${MANUAL_UPDATES}"
 
 # Check for a custom messaging logo image, otherwise default to the Software
 # Update preference pane icon.
