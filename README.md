@@ -4,7 +4,7 @@ This framework will enforce the installation of pending Apple security updates o
 
 This workflow is most useful for updates that require a restart and include important security-related patches (e.g. macOS Catalina 10.15.7 Supplemental), but also applies to security updates that don't require a restart (e.g. Safari 14.0.3). Basically, anything Software Update marks as "recommended" or requiring a restart is in scope.
 
-This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer package when changes are made to the script or to the LaunchDaemon that runs it (despite the name, packages generated with munkipkg don't require Munki; they work great with Jamf Pro). See the [Installer creation](#installer-creation) section below for specific steps on creating the installer for this framework.
+This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer package when changes are made to the script or to the LaunchDaemon that runs it. See the [Installer creation](#installer-creation) section below for specific steps on creating the installer for this framework.
 
 
 ## Requirements
@@ -69,19 +69,38 @@ This framework is designed to work "out of the box" without any modification, bu
 
 You can customize many settings using a configuration profile targeting the `$BUNDLE_ID` preference domain. This allows you to apply different configurations to different groups of Macs (e.g. a dedicated test group could have shorter deferral times), and lets you make changes to these settings on the fly without repackaging and redeploying the script. The following settings can be defined via configuration profile keys:
 
+
+#### Keys
+
+##### Alerting
+
 | Key                      | Type             | Default Value |Minimum Version | Description |
 |--------------------------|------------------|---------------|----------------|-------------|
 |`InstallButtonLabel`      |string|Install|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The label of the install button. Keep this string short since `jamfHelper` will cut off longer button labels.|
 |`DeferButtonLabel`        |string|Defer|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The label of the defer button. Keep this string short since `jamfHelper` will cut off longer button labels.|
-|`DiagnosticLog`           |boolean|`false`|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|Whether to write to a persistent log file at `/var/log/install-or-defer.log`. If undefined or set to false, the script writes all output to the system log for live diagnostics.|
 |`DisablePostInstallAlert` |boolean|`false`|[5.0.4](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.4)|Whether to suppress the persistent alert to run updates. If set to True, clicking the install button will only launch the Software Update pane without displaying a persistent alert to upgrade, until the deadline date is reached.|
-|`ManualUpdates`           |boolean|Apple Silicon: `true`<br />Intel: `false`|[5.0.3](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.3)|Whether to prompt users to run updates manually via System Preferences. This is always the behavior on Apple Silicon Macs and cannot be overridden. If undefined or set to false on Intel Macs, the script triggers updates via scripted `softwareupdate` commands.|
-|`MaxDeferralTime`         |integer|`259200`|[2.2](https://github.com/mpanighetti/install-or-defer/releases/tag/v2.2)|Number of seconds between the first script run and the updates being enforced. Defaults to 259200 (3 days).|
 |`MessagingLogo`           |string|Software Update icon|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|File path to a logo that will be used in messaging. Recommend 512px, PNG format.|
-|`SkipDeferral`            |boolean|`false`|[2.2](https://github.com/mpanighetti/install-or-defer/releases/tag/v2.2)|Whether to bypass deferral time entirely and skip straight to update enforcement (useful for script testing purposes). If set to true, this setting supersedes any values set for `MaxDeferralTime`.|
 |`SupportContact`          |string|IT|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|Contact information for technical support included in messaging alerts. Recommend using a team name (e.g. "Technical Support"), email address (e.g. "support@contoso.com"), or chat channel (e.g. "#technical-support").|
+
+##### Timing
+
+| Key                      | Type             | Default Value |Minimum Version | Description |
+|--------------------------|------------------|---------------|----------------|-------------|
+|`DeferralPeriod`          |integer|`14400`|[5.0.5](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.5)|Number of seconds between when the user clicks "Defer" and the next prompt appears. This value must be less than the `MaxDeferralTime` value.|
+|`HardRestartDelay`        |integer|`300`|[5.0.5](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.5)|Number of seconds to wait between attempting a soft restart and forcing a restart.|
+|`MaxDeferralTime`         |integer|`259200`|[2.2](https://github.com/mpanighetti/install-or-defer/releases/tag/v2.2)|Number of seconds between the first script run and the updates being enforced. Defaults to 259200 (3 days).|
+|`PromptTimeout`           |integer|`3600`|[5.0.5](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.5)|Number of seconds to wait before timing out the Install or Defer prompt. This value must be less than the `DeferralPeriod` value.|
+|`SkipDeferral`            |boolean|`false`|[2.2](https://github.com/mpanighetti/install-or-defer/releases/tag/v2.2)|Whether to bypass deferral time entirely and skip straight to update enforcement (useful for script testing purposes). If set to true, this setting supersedes any values set for `MaxDeferralTime`.|
+|`UpdateDelay`             |integer|`600`|[5.0.5](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.5)|Number of seconds to wait between displaying the "install updates" message and applying updates, then attempting a soft restart.|
 |`WorkdayStartHour`        |integer||[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The hour that a workday starts in your organization. This value must be an integer between 0 and 22, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday. If `WorkdayStartHour` or `WorkdayEndHour` are undefined, deadlines will be scheduled based on maximum deferral time and not account for the time of day that the deadline lands.|
 |`WorkdayEndHour`          |integer||[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The hour that a workday ends in your organization. This value must be an integer between 1 and 23, and the end hour must be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday. If `WorkdayStartHour` or `WorkdayEndHour` are undefined, deadlines will be scheduled based on maximum deferral time and not account for the time of day that the deadline lands.|
+
+##### Backend
+
+| Key                      | Type             | Default Value |Minimum Version | Description |
+|--------------------------|------------------|---------------|----------------|-------------|
+|`DiagnosticLog`           |boolean|`false`|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|Whether to write to a persistent log file at `/var/log/install-or-defer.log`. If undefined or set to false, the script writes all output to the system log for live diagnostics.|
+|`ManualUpdates`           |boolean|Apple Silicon: `true`<br />Intel: `false`|[5.0.3](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.3)|Whether to prompt users to run updates manually via System Preferences. This is always the behavior on Apple Silicon Macs and cannot be overridden. If undefined or set to false on Intel Macs, the script triggers updates via scripted `softwareupdate` commands.|
 
 #### Create a configuration profile in Jamf Pro
 
@@ -160,41 +179,26 @@ The above messages use the following dynamic substitutions:
 - The section in the `{{double curly brackets}}` will be removed when this message is displayed for the final time before the deferral deadline.
 - The sections in the `<<double comparison operators>>` will be removed if a restart is not required for the pending updates.
 
-#### Timing
-
-- `EACH_DEFER`
-
-    When the user clicks "Defer" the next prompt is delayed by this much time.
-
-- `PROMPT_TIMEOUT`
-
-    The number of seconds to wait before timing out each Install or Defer prompt. This value should be less than the `EACH_DEFER` value.
-
-- `UPDATE_DELAY`
-
-    The number of seconds to wait between displaying the "run updates" message and applying updates, then attempting a soft restart.
-
-- `HARD_RESTART_DELAY`
-
-    The number of seconds to wait between attempting a soft restart and forcing a restart.
-
-
 ### Installer creation
 
-Download and install [munkipkg](https://github.com/munki/munki-pkg), if you haven't already. Add the `munkipkg` binary location to your `PATH` or create an alias in your bash profile so that you can reference the command directly.
+1. Install the packaging prerequisites:
 
-If you make changes to the script, we recommend changing the following three things:
+    - Python (does not ship with latest macOS; easiest way to get it is by installing Xcode Command Line Tools: `xcode-select --install`)
+    - [munkipkg](https://github.com/munki/munki-pkg)
 
-- The __Last Modified__ metadata in the script.
-- The __Version__ metadata in the script.
-- The `version` key in the build-info.plist file (to match the script version).
+2. Make all desired modifications to the framework. If you make changes to the script, we recommend changing the following three things:
 
-With munkipkg installed, this command will generate a new installer package in the build folder:
+    - The __Last Modified__ metadata in the script.
+    - The __Version__ metadata in the script.
+    - The `version` key in the build-info.plist file (to match the script version).
 
-    munkipkg /path/to/install-or-defer
+3. With `munkipkg` installed and with `python` in your `$PATH` definitions, this command will generate a new installer package in the build folder (replace paths with the full path to munkipkg and install-or-defer respectively):
 
-The subsequent installer package can be uploaded to Jamf Pro and scoped as specified below in the Jamf Pro setup section.
+    python /path/to/munkipkg /path/to/install-or-defer
 
+4. The subsequent installer package can be uploaded to Jamf Pro and scoped as specified below in the Jamf Pro setup section.
+
+[See the munkipkg README for more information on how to use the tool.](https://github.com/munki/munki-pkg#basic-operation)
 
 ## Jamf Pro setup
 

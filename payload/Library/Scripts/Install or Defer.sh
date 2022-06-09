@@ -15,8 +15,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-05-19
-#         Version:  5.0.4
+#   Last Modified:  2022-06-09
+#         Version:  5.0.5
 #
 ###
 
@@ -82,25 +82,6 @@ MSG_UPDATING_HEADING="Installing updates..."
 MSG_UPDATING="Installing updates for %UPDATE_LIST% in the background.<< Your Mac will restart automatically when this is finished.>> Please contact %SUPPORT_CONTACT% for any questions."
 
 
-#################################### TIMING ###################################
-
-# When the user clicks "Defer" (or if they don't install it after clicking
-# "Install"), the next prompt is delayed by this much time.
-EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
-
-# Number of seconds to wait before timing out the Install or Defer prompt.
-# This value should be less than the $EACH_DEFER value.
-PROMPT_TIMEOUT=$(( 60 * 60 )) # (3600 = 1 hour)
-
-# The number of seconds to wait between displaying the "install updates" message
-# and applying updates, then attempting a soft restart.
-UPDATE_DELAY=$(( 60 * 10 )) # (600 = 10 minutes)
-
-# The number of seconds to wait between attempting a soft restart and forcing a
-# restart.
-HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
-
-
 ######################### CURRENT USER CONTEXT ################################
 
 # Identify current user and UID. Used for any functions that need to run in the
@@ -115,57 +96,125 @@ USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
 # profile, in order to override script defaults with these custom values. To
 # customize these values, make a configuration profile for $BUNDLE_ID and make
 # new selections for each specified key.
-#
+
+### ALERTING ###
 # - InstallButtonLabel (String). The label of the install button. Defaults to
 # "Install".
+INSTALL_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" InstallButtonLabel 2>"/dev/null")
 # - DeferButtonLabel (String). The label of the defer button. Defaults to
 # "Defer".
-# - DiagnosticLog (Boolean). Whether to write to a persistent log file at
-# /var/log/install-or-defer.log. If undefined or set to false, the script writes
-# all output to the system log for live diagnostics.
+DEFER_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DeferButtonLabel 2>"/dev/null")
 # - DisablePostInstallAlert (Boolean). Whether to suppress the persistent alert
 # to run updates. Defaults to False. If set to True, clicking the install button
 # will only launch the Software Update pane without displaying a persistent
 # alert to upgrade, until the deadline date is reached.
-# - ManualUpdates (Boolean). Whether to prompt users to run updates manually via
-# System Preferences. This is always the behavior on Apple Silicon Macs and
-# cannot be overridden. If undefined or set to false on Intel Macs, the script
-# triggers updates via scripted softwareupdate commands.
-# - MaxDeferralTime (Integer). Number of seconds between the first script run
-# and the updates being enforced. Defaults to 259200 (3 days).
+DISABLE_POST_INSTALL_ALERT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DisablePostInstallAlert 2>"/dev/null")
 # - MessagingLogo (String). File path to a logo that will be used in messaging.
 # Recommend 512px, PNG format. Defaults to the Software Update icon.
-# - SkipDeferral (Boolean). Whether to bypass deferral time entirely and skip
-# straight to update enforcement (useful for script testing purposes). Defaults
-# to False. If set to True, this setting supersedes any values set for
-# MaxDeferralTime.
+MESSAGING_LOGO_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MessagingLogo 2>"/dev/null")
 # - SupportContact (String). Contact information for technical support included
 # in messaging alerts. Recommend using a team name (e.g. "Technical Support"),
 # email address (e.g. "support@contoso.com"), or chat channel (e.g.
 # "#technical-support"). Defaults to "IT".
-#
-# (optional) The hours that a workday starts and ends in your organization.
-# These values must each be an integer between 0 and 23, and the end hour must
-# be later than the start hour. If the update deadline falls within this window
-# of time, it will be moved forward to occur at the end of the workday.
+SUPPORT_CONTACT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SupportContact 2>"/dev/null")
+
+### TIMING ###
+# - DeferralPeriod (Integer). Number of seconds between when the user clicks
+# "Defer" and the next prompt appears. Defaults to 14400 = 4 hours.
+DEFERRAL_PERIOD_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DeferralPeriod 2>"/dev/null")
+# - HardRestartDelay (Integer). Number of seconds to wait between attempting a
+# soft restart and forcing a restart. This value must be less than the
+# MaxDeferralTime value. Defaults to 300 (5 minutes).
+HARD_RESTART_DELAY_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" HardRestartDelay 2>"/dev/null")
+# - MaxDeferralTime (Integer). Number of seconds between the first script run
+# and the updates being enforced. Defaults to 259200 (3 days).
+MAX_DEFERRAL_TIME_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MaxDeferralTime 2>"/dev/null")
+# - PromptTimeout (Integer). Number of seconds to wait before timing out the
+# Install or Defer prompt. This value must be less than the DeferralPeriod
+# value. Defaults to 3600 (1 hour).
+PROMPT_TIMEOUT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" PromptTimeout 2>"/dev/null")
+# - SkipDeferral (Boolean). Whether to bypass deferral time entirely and skip
+# straight to update enforcement (useful for script testing purposes). Defaults
+# to False. If set to True, this setting supersedes any values set for
+# MaxDeferralTime.
+SKIP_DEFERRAL_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SkipDeferral 2>"/dev/null")
+# - UpdateDelay (Integer). Number of seconds to wait between displaying the
+# "install updates" message and applying updates, then attempting a soft
+# restart. Defaults to 600 (10 minutes).
+UPDATE_DELAY_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" UpdateDelay 2>"/dev/null")
+# - WorkdayStartHour (Integer). The hour that a workday starts in your
+# organization. This value must be an integer between 0 and 22, and the end hour
+# must be later than the start hour. If the update deadline falls within this
+# window of time, it will be moved forward to occur at the end of the workday.
 # If WorkdayStartHour or WorkdayEndHour are undefined, deadlines will be
 # scheduled based on maximum deferral time and not account for the time of day
 # that the deadline lands.
-# - WorkdayStartHour (Integer). The hour that a workday starts in your
-# organization.
-# - WorkdayEndHour (Integer). The hour that a workday ends in your organization.
-
-DEFER_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DeferButtonLabel 2>"/dev/null")
-DIAGNOSTIC_LOG_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DiagnosticLog 2>"/dev/null")
-DISABLE_POST_INSTALL_ALERT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DisablePostInstallAlert 2>"/dev/null")
-INSTALL_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" InstallButtonLabel 2>"/dev/null")
-MANUAL_UPDATES_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" ManualUpdates 2>"/dev/null")
-MAX_DEFERRAL_TIME_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MaxDeferralTime 2>"/dev/null")
-MESSAGING_LOGO_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MessagingLogo 2>"/dev/null")
-SKIP_DEFERRAL_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SkipDeferral 2>"/dev/null")
-SUPPORT_CONTACT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SupportContact 2>"/dev/null")
-WORKDAY_END_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayEndHour 2>"/dev/null")
 WORKDAY_START_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayStartHour 2>"/dev/null")
+# - WorkdayEndHour (Integer). The hour that a workday ends in your organization.
+# This value must be an integer between 1 and 23, and the end hour must be later
+# than the start hour. If the update deadline falls within this window of time,
+# it will be moved forward to occur at the end of the workday. If
+# WorkdayStartHour or WorkdayEndHour are undefined, deadlines will be scheduled
+# based on maximum deferral time and not account for the time of day that the
+# deadline lands.
+WORKDAY_END_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayEndHour 2>"/dev/null")
+
+### BACKEND ###
+# - DiagnosticLog (Boolean). Whether to write to a persistent log file at
+# /var/log/install-or-defer.log. If undefined or set to false, the script writes
+# all output to the system log for live diagnostics.
+DIAGNOSTIC_LOG_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DiagnosticLog 2>"/dev/null")
+# - ManualUpdates (Boolean). Whether to prompt users to run updates manually via
+# System Preferences. This is always the behavior on Apple Silicon Macs and
+# cannot be overridden. If undefined or set to false on Intel Macs, the script
+# triggers updates via scripted softwareupdate commands.
+MANUAL_UPDATES_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" ManualUpdates 2>"/dev/null")
+
+
+#################################### TIMING ###################################
+
+echo "Calculating script timing..."
+
+# Set maximum deferral to 0 if deferral skip is enabled.
+if [[ "$SKIP_DEFERRAL_CUSTOM" -eq 1 ]]; then
+    MAX_DEFERRAL_TIME=0
+else
+    # Check for a custom maximum deferral time, otherwise default to 3 days.
+    if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
+        MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
+    else
+        MAX_DEFERRAL_TIME=$(( 60 * 60 * 24 * 3 )) # (259200 seconds = 3 days)
+    fi
+fi
+echo "Maximum deferral time: $(convert_seconds "$MAX_DEFERRAL_TIME")"
+
+if (( DEFERRAL_PERIOD_CUSTOM > 0 && DEFERRAL_PERIOD_CUSTOM < MAX_DEFERRAL_TIME )); then
+    EACH_DEFER="$DEFERRAL_PERIOD_CUSTOM"
+else
+    EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
+fi
+echo "Deferral period: $(convert_seconds "$EACH_DEFER")"
+
+if (( PROMPT_TIMEOUT_CUSTOM > 0 && PROMPT_TIMEOUT_CUSTOM < EACH_DEFER )); then
+    PROMPT_TIMEOUT="$PROMPT_TIMEOUT_CUSTOM"
+else
+    PROMPT_TIMEOUT=$(( 60 * 60 )) # (3600 = 1 hour)
+fi
+echo "Prompt timeout: $(convert_seconds "$PROMPT_TIMEOUT")"
+
+if (( UPDATE_DELAY_CUSTOM > 0 )); then
+    UPDATE_DELAY="$UPDATE_DELAY_CUSTOM"
+else
+    UPDATE_DELAY=$(( 60 * 10 )) # (600 = 10 minutes)
+fi
+echo "Update delay: $(convert_seconds "$UPDATE_DELAY")"
+
+if (( HARD_RESTART_DELAY_CUSTOM > 0 )); then
+    HARD_RESTART_DELAY="$HARD_RESTART_DELAY_CUSTOM"
+else
+    HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
+fi
+echo "Hard restart delay: $(convert_seconds "$HARD_RESTART_DELAY")"
 
 
 ################################## FUNCTIONS ##################################
@@ -197,12 +246,12 @@ convert_seconds () {
 # reliable in macOS Big Sur and later.
 restart_softwareupdate_daemon () {
 
-    if [ "$OS_MAJOR" -ge 11 ]; then
+    if [[ "$OS_MAJOR" -ge 11 ]]; then
         echo "Deleting cached update check data..."
         /usr/bin/defaults delete "/Library/Preferences/com.apple.SoftwareUpdate.plist"
         /bin/rm -f "/Library/Preferences/com.apple.SoftwareUpdate.plist"
         # Write macOS beta channel catalog URL back to the plist if previously defined.
-        if [ -n "$SOFTWAREUPDATE_CATALOG_URL" ]; then
+        if [[ -n "$SOFTWAREUPDATE_CATALOG_URL" ]]; then
             /usr/bin/defaults write "/Library/Preferences/com.apple.SoftwareUpdate" CatalogURL -string "$SOFTWAREUPDATE_CATALOG_URL"
             echo "Restored macOS beta channel catalog URL."
         fi
@@ -269,9 +318,9 @@ check_for_updates () {
     # Reformat update list to replace last comma with ", and" or " and" as
     # needed for legibility. In this house, we use Oxford commas.
     COMMA_COUNT="$(echo "$UPDATE_LIST" | /usr/bin/tr -dc ',' | /usr/bin/wc -c | /usr/bin/bc)"
-    if [ "$COMMA_COUNT" -gt 1 ]; then
+    if [[ "$COMMA_COUNT" -gt 1 ]]; then
         UPDATE_LIST="$(echo "$UPDATE_LIST" | sed 's/\(.*\),/\1, and/')"
-    elif [ "$COMMA_COUNT" -eq 1 ]; then
+    elif [[ "$COMMA_COUNT" -eq 1 ]]; then
         UPDATE_LIST="$(echo "$UPDATE_LIST" | sed 's/\(.*\),/\1 and/')"
     fi
     # Populate the list of pending updates in message text.
@@ -297,27 +346,28 @@ display_act_msg () {
 
 }
 
-# Displays HUD with updating message and installs all security updates (as
-# defined by previous checks).
+# Opens System Preferences -> Software Update, optionally prompting user to
+# install updates via HUD message and automatically applying the update when
+# able.
 install_updates () {
 
-    # For Apple Silicon Macs, or if specified in a configuration profile
-    # setting, inform the user of required updates and open the Software Update
-    # window to have the user manually run updates.
-    if [[ "$PLATFORM_ARCH" = "arm64" ]] || [ "$MANUAL_UPDATES_CUSTOM" -eq 1 ]; then
+    # If manual updates are enabled, inform the user of required updates and
+    # open the Software Update window.
+    if [[ "$MANUAL_UPDATES" = "True" ]]; then
 
+        echo "Script has been configured to have user run updates manually."
         # If persistent notification is disabled and there is still deferral
         # time left, just open Software Update once.
-        if [ "$DISABLE_POST_INSTALL_ALERT_CUSTOM" -eq 1 ] && (( DEFER_TIME_LEFT > 0 )) ; then
-        echo "Manual updates enabled, but persistent alerting is disabled. Opening Software Update..."
+        if [[ "$DISABLE_POST_INSTALL_ALERT_CUSTOM" -eq 1 ]] && (( DEFER_TIME_LEFT > 0 )) ; then
+        echo "Persistent alerting is disabled with deferral time remaining. Opening Software Update a single time..."
 
-        # Open System Preferences - Software Update in current user context.
+        # Open System Preferences -> Software Update in current user context.
         /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
 
         # Display a persistent alert while opening Software Update and repeat
         # until the user manually runs updates.
         else
-            echo "Manual updates enabled. Displaying persistent alert until updates are applied..."
+            echo "Displaying persistent alert until updates are applied..."
 
             # Loop this check until softwareupdate --list shows no more pending
             # recommended updates.
@@ -331,7 +381,7 @@ install_updates () {
                 echo "Prompting to install updates now and opening System Preferences -> Software Update..."
                 "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_NOW_HEADING" -description "$MSG_INSTALL_NOW" -lockHUD &
 
-                # Open System Preferences - Software Update in current user context.
+                # Open System Preferences -> Software Update in current user context.
                 /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
 
                 # Leave the alert up for 60 seconds before looping.
@@ -459,7 +509,7 @@ exit_without_updating () {
 
 # Checks for a custom diagnostic log preference,
 # otherwise defaults to copying all output to the system log.
-if [ "$DIAGNOSTIC_LOG_CUSTOM" -eq 1 ]; then
+if [[ "$DIAGNOSTIC_LOG_CUSTOM" -eq 1 ]]; then
     exec 1>>"/var/log/install-or-defer.log" 2>&1
 else
     exec 1> >(/usr/bin/logger -s -t "$(/usr/bin/basename "$0")") 2>&1
@@ -512,7 +562,7 @@ PLATFORM_ARCH="$(/usr/bin/arch)"
 # /Library/Preferences/com.apple.SoftwareUpdate.plist if that file is reset in
 # the restart_softwareupdate_daemon function.
 SOFTWAREUPDATE_CATALOG_URL=$(/usr/bin/defaults read "/Library/Preferences/com.apple.SoftwareUpdate" CatalogURL 2>"/dev/null")
-if [ -n "$SOFTWAREUPDATE_CATALOG_URL" ]; then
+if [[ -n "$SOFTWAREUPDATE_CATALOG_URL" ]]; then
     echo "Found macOS beta channel catalog URL, will retain this setting whenever com.apple.SoftwareUpdate is reset: ${SOFTWAREUPDATE_CATALOG_URL}"
 fi
 
@@ -570,14 +620,14 @@ fi
 
 # Validate configuration profile-enforced settings or use script defaults accordingly.
 # Whether to use custom labels for the install/defer buttons (default to "Install" and "Defer").
-if [ -n "$INSTALL_BUTTON_CUSTOM" ]; then
+if [[ -n "$INSTALL_BUTTON_CUSTOM" ]]; then
     INSTALL_BUTTON="$INSTALL_BUTTON_CUSTOM"
 else
     echo "Install button label undefined by administrator. Using default value."
     INSTALL_BUTTON="Install"
 fi
 echo "Install button label: ${INSTALL_BUTTON}"
-if [ -n "$DEFER_BUTTON_CUSTOM" ]; then
+if [[ -n "$DEFER_BUTTON_CUSTOM" ]]; then
     DEFER_BUTTON="$DEFER_BUTTON_CUSTOM"
 else
     echo "Defer button label undefined by administrator. Using default value."
@@ -585,23 +635,28 @@ else
 fi
 echo "Defer button label: ${DEFER_BUTTON}"
 
-# Whether to skip deferral (default to false).
-if [[ "$SKIP_DEFERRAL_CUSTOM" -eq 1 ]]; then
-    MAX_DEFERRAL_TIME=0
-else
-    # Check for a custom maximum deferral time, otherwise default to 3 days.
-    if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
-        MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
+# Whether to have the user run updates manually (default to false on Intel Macs,
+# always true on Apple Silicon Macs.)
+if [[ "$PLATFORM_ARCH" = "arm64" ]]; then
+    MANUAL_UPDATES="True"
+elif [[ -n "$MANUAL_UPDATES_CUSTOM" ]]; then
+    if [[ "$MANUAL_UPDATES_CUSTOM" -eq 1 ]]; then
+        MANUAL_UPDATES="True"
+    elif [[ "$MANUAL_UPDATES_CUSTOM" -eq 0 ]]; then
+        MANUAL_UPDATES="False"
     else
-        echo "Maximum deferral time preference undefined by administrator, or not set to a positive integer. Using default value."
-        MAX_DEFERRAL_TIME=$(( 60 * 60 * 24 * 3 )) # (259200 seconds = 3 days)
+        echo "Manual update preference not set to a valid boolean. Using default value."
+        MANUAL_UPDATES="False"
     fi
+else
+    echo "Manual update preference undefined by administrator. Using default value."
+    MANUAL_UPDATES="False"
 fi
-echo "Maximum deferral time: $(convert_seconds "$MAX_DEFERRAL_TIME")"
+echo "Manual updates: ${MANUAL_UPDATES}"
 
 # Check for a custom messaging logo image, otherwise default to the Software
 # Update preference pane icon.
-if [ -n "$MESSAGING_LOGO_CUSTOM" ] && [ -f "$MESSAGING_LOGO_CUSTOM" ]; then
+if [[ -n "$MESSAGING_LOGO_CUSTOM" ]] && [[ -f "$MESSAGING_LOGO_CUSTOM" ]]; then
     MESSAGING_LOGO="$MESSAGING_LOGO_CUSTOM"
 else
     echo "Messaging logo undefined by admininstrator, or not found at specified path. Using default value."
@@ -610,7 +665,7 @@ fi
 echo "Messaging logo: ${MESSAGING_LOGO}"
 
 # Populate support contact information (default to "IT").
-if [ -n "$SUPPORT_CONTACT_CUSTOM" ]; then
+if [[ -n "$SUPPORT_CONTACT_CUSTOM" ]]; then
     SUPPORT_CONTACT="$SUPPORT_CONTACT_CUSTOM"
 else
     SUPPORT_CONTACT="IT"
@@ -633,9 +688,9 @@ fi
 
 # If a workday start and end hour have been defined and the deadline currently
 # occurs during the workday, shift it forward to the end of the workday.
-if [ -n "$WORKDAY_START_HR_CUSTOM" ] && [ -n "$WORKDAY_END_HR_CUSTOM" ]; then
+if [[ -n "$WORKDAY_START_HR_CUSTOM" ]] && [[ -n "$WORKDAY_END_HR_CUSTOM" ]]; then
     FORCE_DATE_HR=$(/bin/date -jf "%s" "+%H" "$FORCE_DATE")
-    if [ "$FORCE_DATE_HR" -ge "$WORKDAY_START_HR_CUSTOM" ] && [ "$FORCE_DATE_HR" -lt "$WORKDAY_END_HR_CUSTOM" ]; then
+    if [[ "$FORCE_DATE_HR" -ge "$WORKDAY_START_HR_CUSTOM" ]] && [[ "$FORCE_DATE_HR" -lt "$WORKDAY_END_HR_CUSTOM" ]]; then
         FORCE_DATE_YMD=$(/bin/date -jf "%s" "+%Y-%m-%d" "$FORCE_DATE")
         FORCE_DATE=$(/bin/date -jf "%Y-%m-%d %H:%M:%S" "+%s" "${FORCE_DATE_YMD} ${WORKDAY_END_HR_CUSTOM}:00:00")
         /usr/bin/defaults write "$PLIST" UpdatesForcedAfter -int "$FORCE_DATE"
