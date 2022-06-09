@@ -367,7 +367,6 @@ install_updates () {
         else
             echo "Manual updates enabled. Displaying persistent alert until updates are applied..."
 
-
             # Loop this check until softwareupdate --list shows no more pending
             # recommended updates.
             while [[ $(/usr/sbin/softwareupdate --list) == *"Recommended: YES"* ]]; do
