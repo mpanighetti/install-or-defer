@@ -15,8 +15,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-06-09
-#         Version:  5.0.5
+#   Last Modified:  2022-06-21
+#         Version:  5.0.6
 #
 ###
 
@@ -169,52 +169,6 @@ DIAGNOSTIC_LOG_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${B
 # cannot be overridden. If undefined or set to false on Intel Macs, the script
 # triggers updates via scripted softwareupdate commands.
 MANUAL_UPDATES_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" ManualUpdates 2>"/dev/null")
-
-
-#################################### TIMING ###################################
-
-echo "Calculating script timing..."
-
-# Set maximum deferral to 0 if deferral skip is enabled.
-if [[ "$SKIP_DEFERRAL_CUSTOM" -eq 1 ]]; then
-    MAX_DEFERRAL_TIME=0
-else
-    # Check for a custom maximum deferral time, otherwise default to 3 days.
-    if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
-        MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
-    else
-        MAX_DEFERRAL_TIME=$(( 60 * 60 * 24 * 3 )) # (259200 seconds = 3 days)
-    fi
-fi
-echo "Maximum deferral time: $(convert_seconds "$MAX_DEFERRAL_TIME")"
-
-if (( DEFERRAL_PERIOD_CUSTOM > 0 && DEFERRAL_PERIOD_CUSTOM < MAX_DEFERRAL_TIME )); then
-    EACH_DEFER="$DEFERRAL_PERIOD_CUSTOM"
-else
-    EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
-fi
-echo "Deferral period: $(convert_seconds "$EACH_DEFER")"
-
-if (( PROMPT_TIMEOUT_CUSTOM > 0 && PROMPT_TIMEOUT_CUSTOM < EACH_DEFER )); then
-    PROMPT_TIMEOUT="$PROMPT_TIMEOUT_CUSTOM"
-else
-    PROMPT_TIMEOUT=$(( 60 * 60 )) # (3600 = 1 hour)
-fi
-echo "Prompt timeout: $(convert_seconds "$PROMPT_TIMEOUT")"
-
-if (( UPDATE_DELAY_CUSTOM > 0 )); then
-    UPDATE_DELAY="$UPDATE_DELAY_CUSTOM"
-else
-    UPDATE_DELAY=$(( 60 * 10 )) # (600 = 10 minutes)
-fi
-echo "Update delay: $(convert_seconds "$UPDATE_DELAY")"
-
-if (( HARD_RESTART_DELAY_CUSTOM > 0 )); then
-    HARD_RESTART_DELAY="$HARD_RESTART_DELAY_CUSTOM"
-else
-    HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
-fi
-echo "Hard restart delay: $(convert_seconds "$HARD_RESTART_DELAY")"
 
 
 ################################## FUNCTIONS ##################################
@@ -503,6 +457,52 @@ exit_without_updating () {
     exit 0
 
 }
+
+
+#################################### TIMING ###################################
+
+echo "Calculating script timing..."
+
+# Set maximum deferral to 0 if deferral skip is enabled.
+if [[ "$SKIP_DEFERRAL_CUSTOM" -eq 1 ]]; then
+    MAX_DEFERRAL_TIME=0
+else
+    # Check for a custom maximum deferral time, otherwise default to 3 days.
+    if (( MAX_DEFERRAL_TIME_CUSTOM > 0 )); then
+        MAX_DEFERRAL_TIME="$MAX_DEFERRAL_TIME_CUSTOM"
+    else
+        MAX_DEFERRAL_TIME=$(( 60 * 60 * 24 * 3 )) # (259200 seconds = 3 days)
+    fi
+fi
+echo "Maximum deferral time: $(convert_seconds "$MAX_DEFERRAL_TIME")"
+
+if (( DEFERRAL_PERIOD_CUSTOM > 0 && DEFERRAL_PERIOD_CUSTOM < MAX_DEFERRAL_TIME )); then
+    EACH_DEFER="$DEFERRAL_PERIOD_CUSTOM"
+else
+    EACH_DEFER=$(( 60 * 60 * 4 )) # (14400 = 4 hours)
+fi
+echo "Deferral period: $(convert_seconds "$EACH_DEFER")"
+
+if (( PROMPT_TIMEOUT_CUSTOM > 0 && PROMPT_TIMEOUT_CUSTOM < EACH_DEFER )); then
+    PROMPT_TIMEOUT="$PROMPT_TIMEOUT_CUSTOM"
+else
+    PROMPT_TIMEOUT=$(( 60 * 60 )) # (3600 = 1 hour)
+fi
+echo "Prompt timeout: $(convert_seconds "$PROMPT_TIMEOUT")"
+
+if (( UPDATE_DELAY_CUSTOM > 0 )); then
+    UPDATE_DELAY="$UPDATE_DELAY_CUSTOM"
+else
+    UPDATE_DELAY=$(( 60 * 10 )) # (600 = 10 minutes)
+fi
+echo "Update delay: $(convert_seconds "$UPDATE_DELAY")"
+
+if (( HARD_RESTART_DELAY_CUSTOM > 0 )); then
+    HARD_RESTART_DELAY="$HARD_RESTART_DELAY_CUSTOM"
+else
+    HARD_RESTART_DELAY=$(( 60 * 5 )) # (300 = 5 minutes)
+fi
+echo "Hard restart delay: $(convert_seconds "$HARD_RESTART_DELAY")"
 
 
 ######################## VALIDATION AND ERROR CHECKING ########################
