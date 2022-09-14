@@ -15,8 +15,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-06-21
-#         Version:  5.0.6
+#   Last Modified:  2022-09-14
+#         Version:  5.0.7
 #
 ###
 
@@ -392,8 +392,6 @@ clean_up () {
     echo "Cleaning up script resources..."
     CLEANUP_FILES=(
         "/Library/LaunchDaemons/${BUNDLE_ID}.plist"
-        "$HELPER_LD"
-        "$HELPER_SCRIPT"
         "$SCRIPT_PATH"
     )
     CLEANUP_DIR="/private/tmp/install-or-defer"
@@ -403,10 +401,6 @@ clean_up () {
             /bin/mv -v "$TARGET_FILE" "$CLEANUP_DIR"
         fi
     done
-    if [[ $(/bin/launchctl list) == *"${BUNDLE_ID}_helper"* ]]; then
-        echo "Unloading ${BUNDLE_ID}_helper LaunchDaemon..."
-        /bin/launchctl remove "${BUNDLE_ID}_helper"
-    fi
 
 }
 
@@ -456,6 +450,17 @@ exit_without_updating () {
     echo "Script will end here."
     exit 0
 
+}
+
+# If any validation step failed, bails out of the script immediately.
+bail_out () {
+    # Display error message from validation step.
+    echo "${1}"
+    START_INTERVAL=$(/usr/bin/defaults read "/Library/LaunchDaemons/${BUNDLE_ID}.plist" StartInterval 2>"/dev/null")
+    if [[ -n "$START_INTERVAL" ]]; then
+        echo "Will try again in $(convert_seconds "$START_INTERVAL")."
+    fi
+    exit 1
 }
 
 
@@ -519,43 +524,32 @@ echo "Starting $(/usr/bin/basename "$0"). Performing validation and error checki
 # Define custom $PATH.
 PATH="/usr/sbin:/usr/bin:/usr/local/bin:${PATH}"
 
-# Filename and path we will use for the auto-generated helper script and
-# LaunchDaemon.
-HELPER_SCRIPT="/Library/Scripts/$(/usr/bin/basename "$0" | /usr/bin/sed "s/.sh$//g")_helper.sh"
-HELPER_LD="/Library/LaunchDaemons/${BUNDLE_ID}_helper.plist"
-
-# Flag variable for catching show-stopping errors.
-BAILOUT="false"
-
 # Bail out if the jamfHelper doesn't exist.
 JAMFHELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
 if [[ ! -x "$JAMFHELPER" ]]; then
-    echo "❌ ERROR: The jamfHelper binary must be present in order to run this script."
-    BAILOUT="true"
+    bail_out "❌ ERROR: The jamfHelper binary must be present in order to run this script."
 fi
 
 # Bail out if the jamf binary doesn't exist.
 JAMF_BINARY="/usr/local/bin/jamf"
 if [[ ! -e "$JAMF_BINARY" ]]; then
-    echo "❌ ERROR: The jamf binary could not be found."
-    BAILOUT="true"
+    bail_out "❌ ERROR: The jamf binary must be present in order to run this script."
 fi
+
+# Determine platform architecture.
+PLATFORM_ARCH="$(/usr/bin/arch)"
 
 # Determine macOS version.
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $2}')
 
-# This script has currently been tested in macOS 10.14+, macOS 11, and macOS 12.
-# It will exit with error for any other macOS versions.
+# This script has currently been tested in macOS 10.14, macOS 10.15, macOS 11,
+# and macOS 12. It will exit with error for any other macOS versions.
 # When new versions of macOS are released, this logic should be updated after
 # the script has been tested successfully.
 if [[ "$OS_MAJOR" -lt 10 ]] || [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 14 ]] || [[ "$OS_MAJOR" -gt 12 ]]; then
-    echo "❌ ERROR: This script supports macOS 10.14+, macOS 11, and macOS 12, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
-    BAILOUT="true"
+    bail_out "❌ ERROR: This script supports macOS 10.14 Mojave, macOS 10.15 Catalina, macOS 11 Big Sur, and macOS 12 Monterey, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
 fi
-
-# Determine platform architecture.
-PLATFORM_ARCH="$(/usr/bin/arch)"
 
 # Determine software update custom catalog URL if defined. Used for running beta
 # macOS releases. This URL needs to be retained in
@@ -574,21 +568,18 @@ if nc -zw1 "swscan.apple.com" 443; then
         SOFTWAREUPDATE_CATALOG_URL_MANAGED=$(/usr/bin/defaults read "/Library/Managed Preferences/com.apple.SoftwareUpdate" CatalogURL 2>"/dev/null")
         if [[ "$SOFTWAREUPDATE_CATALOG_URL_MANAGED" != "None" ]]; then
             if /usr/bin/curl --user-agent "Darwin/$(/usr/bin/uname -r)" -s --head "$SOFTWAREUPDATE_CATALOG_URL_MANAGED" | /usr/bin/grep "200 OK" >"/dev/null"; then
-                echo "❌ ERROR: Software update catalog can not be reached."
-                BAILOUT="true"
+                bail_out "❌ ERROR: Software update catalog can not be reached."
             fi
         fi
     fi
 else
-    echo "❌ ERROR: No connection to the Internet."
-    BAILOUT="true"
+    bail_out "❌ ERROR: No connection to the Internet."
 fi
 
 # If FileVault encryption or decryption is in progress, installing updates that
 # require a restart can cause problems.
 if /usr/bin/fdesetup status | /usr/bin/grep -q "in progress"; then
-    echo "❌ ERROR: FileVault encryption or decryption is in progress."
-    BAILOUT="true"
+    bail_out "❌ ERROR: FileVault encryption or decryption is in progress."
 fi
 
 # Validate workday start and end hours (if defined).
@@ -596,24 +587,12 @@ if [[ -n "$WORKDAY_START_HR_CUSTOM" ]] && [[ -n "$WORKDAY_END_HR_CUSTOM" ]]; the
     if (( 0 <= WORKDAY_START_HR_CUSTOM && WORKDAY_START_HR_CUSTOM < WORKDAY_END_HR_CUSTOM && WORKDAY_END_HR_CUSTOM < 24 )); then
         echo "Workday: ${WORKDAY_START_HR_CUSTOM}:00-${WORKDAY_END_HR_CUSTOM}:00"
     else
-        echo "❌ ERROR: There is a logical disconnect between the workday start hour (${WORKDAY_START_HR_CUSTOM}) and end hour (${WORKDAY_END_HR_CUSTOM}). Please update these values to meet script requirements (start hour ≥ 0, start hour < end hour, end hour < 24)."
-        BAILOUT="true"
+        bail_out "❌ ERROR: There is a logical disconnect between the workday start hour (${WORKDAY_START_HR_CUSTOM}) and end hour (${WORKDAY_END_HR_CUSTOM}). Please update these values to meet script requirements (start hour ≥ 0, start hour < end hour, end hour < 24)."
     fi
 fi
 
-# If any of the errors above are present, bail out of the script now.
-if [[ "$BAILOUT" = "true" ]]; then
-    # Checks for StartInterval definition in LaunchDaemon.
-    START_INTERVAL=$(/usr/bin/defaults read "/Library/LaunchDaemons/${BUNDLE_ID}.plist" StartInterval 2>"/dev/null")
-    if [[ -n "$START_INTERVAL" ]]; then
-        echo "Stopping due to errors, but will try again in $(convert_seconds "$START_INTERVAL")."
-    else
-        echo "Stopping due to errors."
-    fi
-    exit 1
-else
-    echo "Validation and error checking passed. Starting main process..."
-fi
+# If all the above checks passed, continue script.
+echo "Validation and error checking passed. Starting main process..."
 
 
 ################################ MAIN PROCESS #################################
