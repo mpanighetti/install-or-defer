@@ -715,7 +715,7 @@ fi
 # Make a note of the time before displaying the prompt.
 PROMPT_START="$(/bin/date +%s)"
 
-# If defer time remains, display the prompt. If not, install and restart.
+# If defer time remains, display the prompt.
 if (( DEFER_TIME_LEFT > 0 )); then
 
     # Substitute the correct number of hours remaining.
@@ -855,8 +855,8 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
     fi
 
+# If no deferral time remains, display final message before enforcing updates.
 else
-    # If no deferral time remains, force installation of updates now.
     echo "No deferral time remains."
     display_act_msg
 fi
