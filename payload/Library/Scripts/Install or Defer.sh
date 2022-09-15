@@ -236,8 +236,9 @@ check_for_updates () {
         MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
-    # Otherwise, only install recommended updates.
-  elif echo "$UPDATE_CHECK" | /usr/bin/tr '[:upper:]' '[:lower:]' | /usr/bin/grep -q "recommended"; then
+    # If any update do not require a restart but are recommended by Apple,
+    # only install recommended updates.
+    elif echo "$UPDATE_CHECK" | /usr/bin/tr '[:upper:]' '[:lower:]' | /usr/bin/grep -q "recommended"; then
         INSTALL_WHICH="recommended"
         RESTART_FLAG=""
         # Remove "<<" and ">>" including all the text between
@@ -251,7 +252,7 @@ check_for_updates () {
         echo "No software updates are available."
         exit_script
     else
-        echo "Software updates may be available, but none are recommended by Apple and thus will not be enforced by this script."
+        echo "Software updates may be available, but none are recommended by Apple, and thus no scripted enforcement is required."
         exit_script
     fi
 
