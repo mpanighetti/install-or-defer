@@ -227,7 +227,7 @@ check_for_updates () {
     # Determine whether any recommended macOS updates are available.
     # If a restart is required for any pending updates, then install all
     # available software updates.
-    if [[ "$UPDATE_CHECK" =~ (Action: restart|\[restart\]) ]]; then
+    if echo "$UPDATE_CHECK" | /usr/bin/grep -q "restart"; then
         INSTALL_WHICH="all"
         RESTART_FLAG="--restart"
         # Remove "<<" and ">>" but leave the text between
@@ -236,8 +236,8 @@ check_for_updates () {
         MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
-    # Otherwise, only target recommended updates.
-    elif [[ "$UPDATE_CHECK" =~ (Recommended: YES|\[recommended\]) ]]; then
+    # Otherwise, only install recommended updates.
+  elif echo "$UPDATE_CHECK" | /usr/bin/tr '[:upper:]' '[:lower:]' | /usr/bin/grep -q "recommended"; then
         INSTALL_WHICH="recommended"
         RESTART_FLAG=""
         # Remove "<<" and ">>" including all the text between
@@ -246,11 +246,19 @@ check_for_updates () {
         MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/\<\<.*\>\>//g')"
-    # If no recommended updates need to be installed, bail out.
+    # If no recommended updates need to be installed, exit script.
+    elif echo "$UPDATE_CHECK" | /usr/bin/grep -q "No new software available."; then
+        echo "No software updates are available."
+        exit_script
     else
-        echo "No recommended updates available."
-        exit_without_updating
+        echo "Software updates may be available, but none are recommended by Apple and thus will not be enforced by this script."
+        exit_script
     fi
+
+}
+
+# Parse software update list for user-facing messaging.
+format_update_list () {
 
     # Capture update names and versions.
     if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 15 ]]; then
@@ -282,6 +290,8 @@ check_for_updates () {
     MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
     MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
     MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
+    # Write formatted list of updates to the plist for later reuse.
+    /usr/bin/defaults write "$PLIST" UpdateList -string "$UPDATE_LIST"
 
 }
 
@@ -352,7 +362,7 @@ install_updates () {
         # Install Apple system updates.
         restart_softwareupdate_daemon "30"
         echo "Installing ${INSTALL_WHICH} Apple system updates..."
-        # macOS Big Sur requires triggering the restart as part of the
+        # macOS Big Sur and later automatically trigger a restart as part of the
         # softwareupdate action, meaning the script will not be able to run its
         # clean_up functions until the next time it is run.
         if [[ "$OS_MAJOR" -gt 10 ]] && [[ "$INSTALL_WHICH" = "all" ]]; then
@@ -373,7 +383,12 @@ install_updates () {
             fi
         fi
 
-        clean_up
+        # Run another software update check to see if the Mac still has pending
+        # recommended updates. This could happen if updates failed to run, or if
+        # secondary updates are made available after the first updates were
+        # completed. If any such updates are still pending, leave script
+        # framework in place to allow for enforcement on the next scheduled run.
+        check_for_updates
 
     fi
 
@@ -434,8 +449,8 @@ trigger_restart () {
 
 }
 
-# Ends script without applying any security updates.
-exit_without_updating () {
+# Ends script.
+exit_script () {
 
     echo "Updating Jamf Pro inventory..."
     "$JAMF_BINARY" recon
@@ -454,6 +469,7 @@ exit_without_updating () {
 
 # If any validation step failed, bails out of the script immediately.
 bail_out () {
+
     # Display error message from validation step.
     echo "${1}"
     START_INTERVAL=$(/usr/bin/defaults read "/Library/LaunchDaemons/${BUNDLE_ID}.plist" StartInterval 2>"/dev/null")
@@ -461,6 +477,7 @@ bail_out () {
         echo "Will try again in $(convert_seconds "$START_INTERVAL")."
     fi
     exit 1
+
 }
 
 
@@ -655,8 +672,10 @@ MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT
 MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
 MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
 
-# Check for updates, exit if none found, otherwise continue.
+# Check for recommended software updates. If any are found, format the update
+# list for user-facing messaging, otherwise exit script.
 check_for_updates
+format_update_list
 
 # Perform first-run tasks, including calculating deadline.
 FORCE_DATE=$(/usr/bin/defaults read "$PLIST" UpdatesForcedAfter 2>"/dev/null")
