@@ -712,9 +712,6 @@ if [[ -n "$DEFERRED_UNTIL" ]] && (( DEFERRED_UNTIL > $(/bin/date +%s) && FORCE_D
     exit 0
 fi
 
-# Make a note of the time before displaying the prompt.
-PROMPT_START="$(/bin/date +%s)"
-
 # If defer time remains, display the prompt.
 if (( DEFER_TIME_LEFT > 0 )); then
 
@@ -748,7 +745,10 @@ if (( DEFER_TIME_LEFT > 0 )); then
         MSG_INSTALL_OR_DEFER="$(echo "$MSG_INSTALL_OR_DEFER" | /usr/bin/sed 's/[{{|}}]//g')"
     fi
 
-    # Show the install/defer prompt.
+    # Make a note of the time before displaying the prompt.
+    PROMPT_START="$(/bin/date +%s)"
+
+    # Show the Install or Defer prompt.
     echo "Prompting to install updates now or defer..."
     PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_OR_DEFER_HEADING" -description "$MSG_INSTALL_OR_DEFER" -button1 "$INSTALL_BUTTON" -button2 "$DEFER_BUTTON" -defaultButton 2 -timeout "$PROMPT_TIMEOUT" -startlaunchd 2>"/dev/null")
     JAMFHELPER_PID="$!"
@@ -777,8 +777,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
         if [[ "$PROMPT_ELAPSED_SEC" -eq 0 ]]; then
 
             kill -9 "$JAMFHELPER_PID"
-            echo "❌ ERROR: jamfHelper returned code ${PROMPT} ${PROMPT_ELAPSED_STR}. It's unlikely that the user responded that quickly."
-            exit 1
+            bail_out "❌ ERROR: jamfHelper returned code ${PROMPT} ${PROMPT_ELAPSED_STR}. It's unlikely that the user responded that quickly."
 
         # User clicked the install button.
         elif [[ "$PROMPT" -eq 0 ]]; then
@@ -802,8 +801,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
         elif [[ "$PROMPT" -eq 1 ]]; then
 
             kill -9 "$JAMFHELPER_PID"
-            echo "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
-            exit 1
+            bail_out "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
 
         # User clicked the defer button.
         elif [[ "$PROMPT" -eq 2 ]]; then
@@ -832,8 +830,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
             # Kill the jamfHelper prompt.
             kill -9 "$JAMFHELPER_PID"
-            echo "❌ ERROR: jamfHelper produced an unexpected value (code ${PROMPT}) ${PROMPT_ELAPSED_STR}."
-            exit 1
+            bail_out "❌ ERROR: jamfHelper produced an unexpected value (code ${PROMPT}) ${PROMPT_ELAPSED_STR}."
 
         fi
 
@@ -842,16 +839,14 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
         # Kill the jamfHelper prompt.
         kill -9 "$JAMFHELPER_PID"
-        echo "❌ ERROR: jamfHelper returned no value ${PROMPT_ELAPSED_STR}. ${INSTALL_BUTTON}/${DEFER_BUTTON} response was not captured. This may be because the user logged out without clicking ${INSTALL_BUTTON} or ${DEFER_BUTTON}."
-        exit 1
+        bail_out "❌ ERROR: jamfHelper returned no value ${PROMPT_ELAPSED_STR}. ${INSTALL_BUTTON}/${DEFER_BUTTON} response was not captured. This may be because the user logged out without clicking ${INSTALL_BUTTON} or ${DEFER_BUTTON}."
 
     # Unexpected response.
     else
 
         # Kill the jamfHelper prompt.
         kill -9 "$JAMFHELPER_PID"
-        echo "❌ ERROR: Something went wrong. Check the jamfHelper return code (${PROMPT}) and prompt elapsed seconds (${PROMPT_ELAPSED_SEC}) for further information."
-        exit 1
+        bail_out "❌ ERROR: Something went wrong. Check the jamfHelper return code (${PROMPT}) and prompt elapsed seconds (${PROMPT_ELAPSED_SEC}) for further information."
 
     fi
 
