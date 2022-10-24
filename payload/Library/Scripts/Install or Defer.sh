@@ -15,8 +15,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-06-21
-#         Version:  5.0.6
+#   Last Modified:  2022-09-14
+#         Version:  5.0.7
 #
 ###
 
@@ -227,7 +227,7 @@ check_for_updates () {
     # Determine whether any recommended macOS updates are available.
     # If a restart is required for any pending updates, then install all
     # available software updates.
-    if [[ "$UPDATE_CHECK" =~ (Action: restart|\[restart\]) ]]; then
+    if echo "$UPDATE_CHECK" | /usr/bin/grep -q "restart"; then
         INSTALL_WHICH="all"
         RESTART_FLAG="--restart"
         # Remove "<<" and ">>" but leave the text between
@@ -236,8 +236,9 @@ check_for_updates () {
         MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
-    # Otherwise, only target recommended updates.
-    elif [[ "$UPDATE_CHECK" =~ (Recommended: YES|\[recommended\]) ]]; then
+    # If any update do not require a restart but are recommended by Apple,
+    # only install recommended updates.
+    elif echo "$UPDATE_CHECK" | /usr/bin/tr '[:upper:]' '[:lower:]' | /usr/bin/grep -q "recommended"; then
         INSTALL_WHICH="recommended"
         RESTART_FLAG=""
         # Remove "<<" and ">>" including all the text between
@@ -246,11 +247,19 @@ check_for_updates () {
         MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/\<\<.*\>\>//g')"
-    # If no recommended updates need to be installed, bail out.
+    # If no recommended updates need to be installed, exit script.
+    elif echo "$UPDATE_CHECK" | /usr/bin/grep -q "No new software available."; then
+        echo "No software updates are available."
+        exit_script
     else
-        echo "No recommended updates available."
-        exit_without_updating
+        echo "Software updates may be available, but none are recommended by Apple, and thus no scripted enforcement is required."
+        exit_script
     fi
+
+}
+
+# Parse software update list for user-facing messaging.
+format_update_list () {
 
     # Capture update names and versions.
     if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 15 ]]; then
@@ -282,6 +291,8 @@ check_for_updates () {
     MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
     MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
     MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
+    # Write formatted list of updates to the plist for later reuse.
+    /usr/bin/defaults write "$PLIST" UpdateList -string "$UPDATE_LIST"
 
 }
 
@@ -352,7 +363,7 @@ install_updates () {
         # Install Apple system updates.
         restart_softwareupdate_daemon "30"
         echo "Installing ${INSTALL_WHICH} Apple system updates..."
-        # macOS Big Sur requires triggering the restart as part of the
+        # macOS Big Sur and later automatically trigger a restart as part of the
         # softwareupdate action, meaning the script will not be able to run its
         # clean_up functions until the next time it is run.
         if [[ "$OS_MAJOR" -gt 10 ]] && [[ "$INSTALL_WHICH" = "all" ]]; then
@@ -373,7 +384,12 @@ install_updates () {
             fi
         fi
 
-        clean_up
+        # Run another software update check to see if the Mac still has pending
+        # recommended updates. This could happen if updates failed to run, or if
+        # secondary updates are made available after the first updates were
+        # completed. If any such updates are still pending, leave script
+        # framework in place to allow for enforcement on the next scheduled run.
+        check_for_updates
 
     fi
 
@@ -392,8 +408,6 @@ clean_up () {
     echo "Cleaning up script resources..."
     CLEANUP_FILES=(
         "/Library/LaunchDaemons/${BUNDLE_ID}.plist"
-        "$HELPER_LD"
-        "$HELPER_SCRIPT"
         "$SCRIPT_PATH"
     )
     CLEANUP_DIR="/private/tmp/install-or-defer"
@@ -403,10 +417,6 @@ clean_up () {
             /bin/mv -v "$TARGET_FILE" "$CLEANUP_DIR"
         fi
     done
-    if [[ $(/bin/launchctl list) == *"${BUNDLE_ID}_helper"* ]]; then
-        echo "Unloading ${BUNDLE_ID}_helper LaunchDaemon..."
-        /bin/launchctl remove "${BUNDLE_ID}_helper"
-    fi
 
 }
 
@@ -440,8 +450,8 @@ trigger_restart () {
 
 }
 
-# Ends script without applying any security updates.
-exit_without_updating () {
+# Ends script.
+exit_script () {
 
     echo "Updating Jamf Pro inventory..."
     "$JAMF_BINARY" recon
@@ -455,6 +465,19 @@ exit_without_updating () {
     fi
     echo "Script will end here."
     exit 0
+
+}
+
+# If any validation step failed, bails out of the script immediately.
+bail_out () {
+
+    # Display error message from validation step.
+    echo "${1}"
+    START_INTERVAL=$(/usr/bin/defaults read "/Library/LaunchDaemons/${BUNDLE_ID}.plist" StartInterval 2>"/dev/null")
+    if [[ -n "$START_INTERVAL" ]]; then
+        echo "Will try again in $(convert_seconds "$START_INTERVAL")."
+    fi
+    exit 1
 
 }
 
@@ -519,43 +542,32 @@ echo "Starting $(/usr/bin/basename "$0"). Performing validation and error checki
 # Define custom $PATH.
 PATH="/usr/sbin:/usr/bin:/usr/local/bin:${PATH}"
 
-# Filename and path we will use for the auto-generated helper script and
-# LaunchDaemon.
-HELPER_SCRIPT="/Library/Scripts/$(/usr/bin/basename "$0" | /usr/bin/sed "s/.sh$//g")_helper.sh"
-HELPER_LD="/Library/LaunchDaemons/${BUNDLE_ID}_helper.plist"
-
-# Flag variable for catching show-stopping errors.
-BAILOUT="false"
-
 # Bail out if the jamfHelper doesn't exist.
 JAMFHELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
 if [[ ! -x "$JAMFHELPER" ]]; then
-    echo "❌ ERROR: The jamfHelper binary must be present in order to run this script."
-    BAILOUT="true"
+    bail_out "❌ ERROR: The jamfHelper binary must be present in order to run this script."
 fi
 
 # Bail out if the jamf binary doesn't exist.
 JAMF_BINARY="/usr/local/bin/jamf"
 if [[ ! -e "$JAMF_BINARY" ]]; then
-    echo "❌ ERROR: The jamf binary could not be found."
-    BAILOUT="true"
+    bail_out "❌ ERROR: The jamf binary must be present in order to run this script."
 fi
+
+# Determine platform architecture.
+PLATFORM_ARCH="$(/usr/bin/arch)"
 
 # Determine macOS version.
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $2}')
 
-# This script has currently been tested in macOS 10.14+, macOS 11, and macOS 12.
-# It will exit with error for any other macOS versions.
+# This script has currently been tested in macOS 10.14, macOS 10.15, macOS 11,
+# and macOS 12. It will exit with error for any other macOS versions.
 # When new versions of macOS are released, this logic should be updated after
 # the script has been tested successfully.
 if [[ "$OS_MAJOR" -lt 10 ]] || [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 14 ]] || [[ "$OS_MAJOR" -gt 12 ]]; then
-    echo "❌ ERROR: This script supports macOS 10.14+, macOS 11, and macOS 12, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
-    BAILOUT="true"
+    bail_out "❌ ERROR: This script supports macOS 10.14 Mojave, macOS 10.15 Catalina, macOS 11 Big Sur, and macOS 12 Monterey, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
 fi
-
-# Determine platform architecture.
-PLATFORM_ARCH="$(/usr/bin/arch)"
 
 # Determine software update custom catalog URL if defined. Used for running beta
 # macOS releases. This URL needs to be retained in
@@ -574,21 +586,18 @@ if nc -zw1 "swscan.apple.com" 443; then
         SOFTWAREUPDATE_CATALOG_URL_MANAGED=$(/usr/bin/defaults read "/Library/Managed Preferences/com.apple.SoftwareUpdate" CatalogURL 2>"/dev/null")
         if [[ "$SOFTWAREUPDATE_CATALOG_URL_MANAGED" != "None" ]]; then
             if /usr/bin/curl --user-agent "Darwin/$(/usr/bin/uname -r)" -s --head "$SOFTWAREUPDATE_CATALOG_URL_MANAGED" | /usr/bin/grep "200 OK" >"/dev/null"; then
-                echo "❌ ERROR: Software update catalog can not be reached."
-                BAILOUT="true"
+                bail_out "❌ ERROR: Software update catalog can not be reached."
             fi
         fi
     fi
 else
-    echo "❌ ERROR: No connection to the Internet."
-    BAILOUT="true"
+    bail_out "❌ ERROR: No connection to the Internet."
 fi
 
 # If FileVault encryption or decryption is in progress, installing updates that
 # require a restart can cause problems.
 if /usr/bin/fdesetup status | /usr/bin/grep -q "in progress"; then
-    echo "❌ ERROR: FileVault encryption or decryption is in progress."
-    BAILOUT="true"
+    bail_out "❌ ERROR: FileVault encryption or decryption is in progress."
 fi
 
 # Validate workday start and end hours (if defined).
@@ -596,24 +605,12 @@ if [[ -n "$WORKDAY_START_HR_CUSTOM" ]] && [[ -n "$WORKDAY_END_HR_CUSTOM" ]]; the
     if (( 0 <= WORKDAY_START_HR_CUSTOM && WORKDAY_START_HR_CUSTOM < WORKDAY_END_HR_CUSTOM && WORKDAY_END_HR_CUSTOM < 24 )); then
         echo "Workday: ${WORKDAY_START_HR_CUSTOM}:00-${WORKDAY_END_HR_CUSTOM}:00"
     else
-        echo "❌ ERROR: There is a logical disconnect between the workday start hour (${WORKDAY_START_HR_CUSTOM}) and end hour (${WORKDAY_END_HR_CUSTOM}). Please update these values to meet script requirements (start hour ≥ 0, start hour < end hour, end hour < 24)."
-        BAILOUT="true"
+        bail_out "❌ ERROR: There is a logical disconnect between the workday start hour (${WORKDAY_START_HR_CUSTOM}) and end hour (${WORKDAY_END_HR_CUSTOM}). Please update these values to meet script requirements (start hour ≥ 0, start hour < end hour, end hour < 24)."
     fi
 fi
 
-# If any of the errors above are present, bail out of the script now.
-if [[ "$BAILOUT" = "true" ]]; then
-    # Checks for StartInterval definition in LaunchDaemon.
-    START_INTERVAL=$(/usr/bin/defaults read "/Library/LaunchDaemons/${BUNDLE_ID}.plist" StartInterval 2>"/dev/null")
-    if [[ -n "$START_INTERVAL" ]]; then
-        echo "Stopping due to errors, but will try again in $(convert_seconds "$START_INTERVAL")."
-    else
-        echo "Stopping due to errors."
-    fi
-    exit 1
-else
-    echo "Validation and error checking passed. Starting main process..."
-fi
+# If all the above checks passed, continue script.
+echo "Validation and error checking passed. Starting main process..."
 
 
 ################################ MAIN PROCESS #################################
@@ -676,8 +673,10 @@ MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT
 MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
 MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
 
-# Check for updates, exit if none found, otherwise continue.
+# Check for recommended software updates. If any are found, format the update
+# list for user-facing messaging, otherwise exit script.
 check_for_updates
+format_update_list
 
 # Perform first-run tasks, including calculating deadline.
 FORCE_DATE=$(/usr/bin/defaults read "$PLIST" UpdatesForcedAfter 2>"/dev/null")
@@ -713,10 +712,7 @@ if [[ -n "$DEFERRED_UNTIL" ]] && (( DEFERRED_UNTIL > $(/bin/date +%s) && FORCE_D
     exit 0
 fi
 
-# Make a note of the time before displaying the prompt.
-PROMPT_START="$(/bin/date +%s)"
-
-# If defer time remains, display the prompt. If not, install and restart.
+# If defer time remains, display the prompt.
 if (( DEFER_TIME_LEFT > 0 )); then
 
     # Substitute the correct number of hours remaining.
@@ -749,7 +745,10 @@ if (( DEFER_TIME_LEFT > 0 )); then
         MSG_INSTALL_OR_DEFER="$(echo "$MSG_INSTALL_OR_DEFER" | /usr/bin/sed 's/[{{|}}]//g')"
     fi
 
-    # Show the install/defer prompt.
+    # Make a note of the time before displaying the prompt.
+    PROMPT_START="$(/bin/date +%s)"
+
+    # Show the Install or Defer prompt.
     echo "Prompting to install updates now or defer..."
     PROMPT=$("$JAMFHELPER" -windowType "utility" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_OR_DEFER_HEADING" -description "$MSG_INSTALL_OR_DEFER" -button1 "$INSTALL_BUTTON" -button2 "$DEFER_BUTTON" -defaultButton 2 -timeout "$PROMPT_TIMEOUT" -startlaunchd 2>"/dev/null")
     JAMFHELPER_PID="$!"
@@ -778,8 +777,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
         if [[ "$PROMPT_ELAPSED_SEC" -eq 0 ]]; then
 
             kill -9 "$JAMFHELPER_PID"
-            echo "❌ ERROR: jamfHelper returned code ${PROMPT} ${PROMPT_ELAPSED_STR}. It's unlikely that the user responded that quickly."
-            exit 1
+            bail_out "❌ ERROR: jamfHelper returned code ${PROMPT} ${PROMPT_ELAPSED_STR}. It's unlikely that the user responded that quickly."
 
         # User clicked the install button.
         elif [[ "$PROMPT" -eq 0 ]]; then
@@ -803,8 +801,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
         elif [[ "$PROMPT" -eq 1 ]]; then
 
             kill -9 "$JAMFHELPER_PID"
-            echo "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
-            exit 1
+            bail_out "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
 
         # User clicked the defer button.
         elif [[ "$PROMPT" -eq 2 ]]; then
@@ -833,8 +830,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
             # Kill the jamfHelper prompt.
             kill -9 "$JAMFHELPER_PID"
-            echo "❌ ERROR: jamfHelper produced an unexpected value (code ${PROMPT}) ${PROMPT_ELAPSED_STR}."
-            exit 1
+            bail_out "❌ ERROR: jamfHelper produced an unexpected value (code ${PROMPT}) ${PROMPT_ELAPSED_STR}."
 
         fi
 
@@ -843,21 +839,19 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
         # Kill the jamfHelper prompt.
         kill -9 "$JAMFHELPER_PID"
-        echo "❌ ERROR: jamfHelper returned no value ${PROMPT_ELAPSED_STR}. ${INSTALL_BUTTON}/${DEFER_BUTTON} response was not captured. This may be because the user logged out without clicking ${INSTALL_BUTTON} or ${DEFER_BUTTON}."
-        exit 1
+        bail_out "❌ ERROR: jamfHelper returned no value ${PROMPT_ELAPSED_STR}. ${INSTALL_BUTTON}/${DEFER_BUTTON} response was not captured. This may be because the user logged out without clicking ${INSTALL_BUTTON} or ${DEFER_BUTTON}."
 
     # Unexpected response.
     else
 
         # Kill the jamfHelper prompt.
         kill -9 "$JAMFHELPER_PID"
-        echo "❌ ERROR: Something went wrong. Check the jamfHelper return code (${PROMPT}) and prompt elapsed seconds (${PROMPT_ELAPSED_SEC}) for further information."
-        exit 1
+        bail_out "❌ ERROR: Something went wrong. Check the jamfHelper return code (${PROMPT}) and prompt elapsed seconds (${PROMPT_ELAPSED_SEC}) for further information."
 
     fi
 
+# If no deferral time remains, display final message before enforcing updates.
 else
-    # If no deferral time remains, force installation of updates now.
     echo "No deferral time remains."
     display_act_msg
 fi

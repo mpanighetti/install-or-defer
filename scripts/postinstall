@@ -9,3 +9,4 @@ MAIN_LD="${3}/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plis
 
 # Load LaunchDaemon.
 /bin/launchctl load -w "$MAIN_LD"
+echo "Loaded LaunchDaemon: ${MAIN_LD}"

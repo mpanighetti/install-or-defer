@@ -4,11 +4,8 @@
 <dict>
 	<key>Label</key>
 	<string>com.github.mpanighetti.install-or-defer</string>
-	<key>ProgramArguments</key>
-	<array>
-		<string>/bin/bash</string>
-		<string>/Library/Scripts/Install or Defer.sh</string>
-	</array>
+	<key>Program</key>
+	<string>/Library/Scripts/Install or Defer.sh</string>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>StartInterval</key>
