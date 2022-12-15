@@ -222,8 +222,16 @@ check_for_updates () {
 
     restart_softwareupdate_daemon "30"
     echo "Checking for pending system updates..."
-    # Capture output of softwareupdate --list, omitting any lines containing updates deferred via MDM.
+    # Capture output of softwareupdate --list, omitting any lines containing
+    # updates deferred via MDM.
     UPDATE_CHECK="$(/usr/sbin/softwareupdate --list 2>&1 | /usr/bin/grep -v 'Deferred: YES')"
+    # For Macs running macOS Monterey, remove any lines containing "macOS
+    # Ventura". This works around an issue where Monterey's softwareupdate
+    # output includes minor updates for later major macOS releases deferred
+    # via MDM and does not identify them as deferred.
+    if [ "$OS_MAJOR" -eq 12 ]; then
+        UPDATE_CHECK=$(echo "$UPDATE_CHECK" | /usr/bin/grep -v "macOS Ventura")
+    fi
 
     # Determine whether any recommended macOS updates are available.
     # If a restart is required for any pending updates, then install all
