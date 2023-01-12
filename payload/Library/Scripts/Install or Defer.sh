@@ -106,8 +106,8 @@ INSTALL_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${B
 DEFER_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DeferButtonLabel 2>"/dev/null")
 # - DisablePostInstallAlert (Boolean). Whether to suppress the persistent alert
 # to run updates. Defaults to False. If set to True, clicking the install button
-# will only launch Software Update without displaying a persistent
-# alert to upgrade, until the deadline date is reached.
+# will only launch Software Update without displaying a persistent alert to
+# upgrade, until the deadline date is reached.
 DISABLE_POST_INSTALL_ALERT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DisablePostInstallAlert 2>"/dev/null")
 # - MessagingLogo (String). File path to a logo that will be used in messaging.
 # Recommend 512px, PNG format. Defaults to the Software Update icon.
