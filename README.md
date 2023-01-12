@@ -2,7 +2,7 @@
 
 This framework will enforce the installation of pending Apple security updates on Jamf Pro-managed Macs. Users will have the option to __Install__ or __Defer__. After a specified amount of time passes, the Mac will be prompted to install the updates, then restart automatically if any updates require it.
 
-This workflow is most useful for updates that require a restart and include important security-related patches (e.g. macOS Catalina 10.15.7 Supplemental), but also applies to security updates that don't require a restart (e.g. Safari 14.0.3). Basically, anything Software Update marks as "recommended" or requiring a restart is in scope.
+This workflow is most useful for updates that require a restart and include important security-related patches (e.g. macOS 13.1), but also applies to security updates that don't require a restart (e.g. Safari 16.2). Basically, anything Software Update marks as "recommended" or requiring a restart is in scope.
 
 This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer package when changes are made to the script or to the LaunchDaemon that runs it. See the [Installer creation](#installer-creation) section below for specific steps on creating the installer for this framework.
 
@@ -11,7 +11,7 @@ This framework is distributed in the form of a [munkipkg](https://github.com/mun
 
 Here's what needs to be in place in order to use this framework:
 
-- The current version of this framework officially supports __macOS Mojave, Catalina, Big Sur, and Monterey__, but older script versions should continue to function normally for previous macOS releases (note, however, that those versions of macOS are no longer receiving regular security updates from Apple and thus may not benefit from this framework).
+- The current version of this framework officially supports __macOS Catalina, Big Sur, Monterey, and Ventura__, but older script versions should continue to function normally for previous macOS releases (note, however, that those versions of macOS are no longer receiving regular security updates from Apple and thus may not benefit from this framework).
 - Target Macs must be __enrolled in Jamf Pro__ and have the `jamfHelper` binary installed.
 
 ### Optional
@@ -216,22 +216,21 @@ Upload this package (created with munkipkg above) to the Jamf Pro server via Jam
 
 Create a smart group for each software update or operating system patch you wish to enforce. Here are some examples to serve as guides, using regular expressions to allow for fewer criteria:
 
-- __Critical Update Needed: macOS Catalina 10.15.7__
-    - `Operating System Build` `matches regex` `^19[A-G]`
-- __Critical Update Needed: Security Update 2021-002 Mojave__
-    - `Operating System Build` `matches regex` `^18G\d{1,3}$`
-    - `or` `Operating System Build` `matches regex` `^18G[1-7]\d{3}$`
-    - `or` `Operating System Build` `matches regex` `^18G80[0-1]\d$`
-    - `or` `Operating System Build` `matches regex` `^18G802[0-1]$`
+- __Critical Update Needed: macOS Ventura 13.1__
+    - `Operating System Build` `matches regex` `^22[A-B]`
+- __Critical Update Needed: macOS Monterey 12.6.2__
+    - `Operating System Build` `matches regex` `^21[A-F]`
+    - `or` `Operating System Build` `matches regex` `^21G\d{1,2}$`
+    - `or` `Operating System Build` `matches regex` `^21G[1-2]\d{2}$`
+    - `or` `Operating System Build` `matches regex` `^21G3[0-1]\d$`
 
 For completion's sake, here's an example of an update that won't require a restart but is still tagged as `Recommended: YES` in the `softwareupdate` catalog:
 
-- __Critical Update Needed: Safari 14.0.3__
+- __Critical Update Needed: Safari 16.2__
     - `Application Title` `is` `Safari.app`
     - `and` `(` `Application Version` `matches regex` `^\d\.`
-    - `or` `Application Version` `matches regex` `^1[0-3]\.`
-    - `or` `Application Version` `matches regex` `^14\.0$`
-    - `or` `Application Version` `matches regex` `^14\.0\.[0-2]` `)`
+    - `or` `Application Version` `matches regex` `^1[0-5]\.`
+    - `or` `Application Version` `matches regex` `^16\.[0-1]$` `)`
 
 
 ### Policy

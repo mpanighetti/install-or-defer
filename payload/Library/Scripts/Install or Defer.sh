@@ -15,8 +15,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-12-15
-#         Version:  5.0.8
+#   Last Modified:  2023-01-12
+#         Version:  6.0
 #
 ###
 
@@ -270,20 +270,15 @@ check_for_updates () {
 # Parse software update list for user-facing messaging.
 format_update_list () {
 
-    # Capture update names and versions.
-    if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 15 ]]; then
-        UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[\(\)]' '/recommended/ {print $1 $2}')"
+    # Capture update names and versions.  Omit the Version column if the
+    # update list includes a "macOS" update, as those updates tend to
+    # already include version information in the Title column.
+    # Note that this will omit version strings from any other pending
+    # updates, e.g. Safari.
+    if echo "$UPDATE_CHECK" | /usr/bin/grep -q "macOS"; then
+        UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2}')"
     else
-        # Omit the Version column if the update list includes a "macOS" update,
-        # as those updates tend to already include version information in the
-        # Title column.
-        # Note that this will omit version strings from any other pending
-        # updates, e.g. Safari.
-        if echo "$UPDATE_CHECK" | /usr/bin/grep -q "macOS"; then
-            UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2}')"
-        else
-            UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2 $4}')"
-        fi
+        UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2 $4}')"
     fi
     # Convert update list from multiline to comma-separated list.
     UPDATE_LIST="$(echo "$UPDATE_LIST" | /usr/bin/tr '\n' ',' | /usr/bin/sed 's/^ *//; s/,/, /g; s/, $//')"
@@ -570,12 +565,12 @@ PLATFORM_ARCH="$(/usr/bin/arch)"
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $2}')
 
-# This script has currently been tested in macOS 10.14, macOS 10.15, macOS 11,
-# and macOS 12. It will exit with error for any other macOS versions.
+# This script has currently been tested in macOS 10.15, macOS 11, macOS 12,
+# and macOS 13. It will exit with error for any other macOS versions.
 # When new versions of macOS are released, this logic should be updated after
 # the script has been tested successfully.
-if [[ "$OS_MAJOR" -lt 10 ]] || [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 14 ]] || [[ "$OS_MAJOR" -gt 12 ]]; then
-    bail_out "❌ ERROR: This script supports macOS 10.14 Mojave, macOS 10.15 Catalina, macOS 11 Big Sur, and macOS 12 Monterey, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
+if [[ "$OS_MAJOR" -lt 10 ]] || [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 15 ]] || [[ "$OS_MAJOR" -gt 13 ]]; then
+    bail_out "❌ ERROR: This script supports macOS 10.15 Catalina, macOS 11 Big Sur, macOS 12 Monterey, and macOS 13 Ventura, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
 fi
 
 # Determine software update custom catalog URL if defined. Used for running beta
