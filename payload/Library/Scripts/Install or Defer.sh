@@ -15,7 +15,7 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2023-01-12
+#   Last Modified:  2023-02-03
 #         Version:  6.0
 #
 ###
@@ -669,12 +669,16 @@ fi
 echo "Manual updates: ${MANUAL_UPDATES}"
 
 # Check for a custom messaging logo image, otherwise default to the Software
-# Update preference pane icon.
+# Update icon.
 if [[ -n "$MESSAGING_LOGO_CUSTOM" ]] && [[ -f "$MESSAGING_LOGO_CUSTOM" ]]; then
     MESSAGING_LOGO="$MESSAGING_LOGO_CUSTOM"
 else
     echo "Messaging logo undefined by admininstrator, or not found at specified path. Using default value."
-    MESSAGING_LOGO="/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns"
+    if [[ "$OS_MAJOR" -lt 13 ]]; then
+        MESSAGING_LOGO="/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns"
+    else
+        MESSAGING_LOGO="/System/Library/PrivateFrameworks/SoftwareUpdate.framework/Versions/Current/Resources/SoftwareUpdate.icns"
+    fi
 fi
 echo "Messaging logo: ${MESSAGING_LOGO}"
 
