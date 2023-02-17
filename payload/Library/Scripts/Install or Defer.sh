@@ -15,8 +15,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2022-12-15
-#         Version:  5.0.8
+#   Last Modified:  2023-02-03
+#         Version:  6.0
 #
 ###
 
@@ -73,7 +73,7 @@ Please contact %SUPPORT_CONTACT% for any questions."
 MSG_INSTALL_NOW_HEADING="Updates are available"
 MSG_INSTALL_NOW="Your Mac needs to install updates for %UPDATE_LIST%<< which require a restart>>.
 
-Please save your work, open System Preferences -> Software Update, and install all available updates.<< Your Mac will restart when all updates are finished installing.>>
+Please save your work, open Software Update, and install all available updates.<< Your Mac will restart when all updates are finished installing.>>
 
 Please contact %SUPPORT_CONTACT% for any questions."
 
@@ -106,8 +106,8 @@ INSTALL_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${B
 DEFER_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DeferButtonLabel 2>"/dev/null")
 # - DisablePostInstallAlert (Boolean). Whether to suppress the persistent alert
 # to run updates. Defaults to False. If set to True, clicking the install button
-# will only launch the Software Update pane without displaying a persistent
-# alert to upgrade, until the deadline date is reached.
+# will only launch Software Update without displaying a persistent alert to
+# upgrade, until the deadline date is reached.
 DISABLE_POST_INSTALL_ALERT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DisablePostInstallAlert 2>"/dev/null")
 # - MessagingLogo (String). File path to a logo that will be used in messaging.
 # Recommend 512px, PNG format. Defaults to the Software Update icon.
@@ -165,7 +165,7 @@ WORKDAY_END_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${B
 # all output to the system log for live diagnostics.
 DIAGNOSTIC_LOG_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DiagnosticLog 2>"/dev/null")
 # - ManualUpdates (Boolean). Whether to prompt users to run updates manually via
-# System Preferences. This is always the behavior on Apple Silicon Macs and
+# Software Update. This is always the behavior on Apple Silicon Macs and
 # cannot be overridden. If undefined or set to false on Intel Macs, the script
 # triggers updates via scripted softwareupdate commands.
 MANUAL_UPDATES_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" ManualUpdates 2>"/dev/null")
@@ -191,6 +191,14 @@ convert_seconds () {
         ((SECONDS=${1}%60))
     fi
     printf "%02dd:%02dh:%02dm:%02ds\n" "$DAYS" "$HOURS" "$MINUTES" "$SECONDS"
+
+}
+
+# Quits any running jamfHelper processes to dismiss existing alerts.
+quit_jamfhelper () {
+
+    echo "Killing any active jamfHelper notifications..."
+    /usr/bin/killall jamfHelper 2>"/dev/null"
 
 }
 
@@ -221,7 +229,7 @@ restart_softwareupdate_daemon () {
 check_for_updates () {
 
     restart_softwareupdate_daemon "30"
-    echo "Checking for pending system updates..."
+    echo "Checking for pending macOS updates..."
     # Capture output of softwareupdate --list, omitting any lines containing
     # updates deferred via MDM.
     UPDATE_CHECK="$(/usr/sbin/softwareupdate --list 2>&1 | /usr/bin/grep -v 'Deferred: YES')"
@@ -245,7 +253,7 @@ check_for_updates () {
         MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
-    # If any update do not require a restart but are recommended by Apple,
+    # If any updates do not require a restart but are recommended,
     # only install recommended updates.
     elif echo "$UPDATE_CHECK" | /usr/bin/tr '[:upper:]' '[:lower:]' | /usr/bin/grep -q "recommended"; then
         INSTALL_WHICH="recommended"
@@ -270,20 +278,15 @@ check_for_updates () {
 # Parse software update list for user-facing messaging.
 format_update_list () {
 
-    # Capture update names and versions.
-    if [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 15 ]]; then
-        UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[\(\)]' '/recommended/ {print $1 $2}')"
+    # Capture update names and versions.  Omit the Version column if the
+    # update list includes a "macOS" update, as those updates tend to
+    # already include version information in the Title column.
+    # Note that this will omit version strings from any other pending
+    # updates, e.g. Safari.
+    if echo "$UPDATE_CHECK" | /usr/bin/grep -q "macOS"; then
+        UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2}')"
     else
-        # Omit the Version column if the update list includes a "macOS" update,
-        # as those updates tend to already include version information in the
-        # Title column.
-        # Note that this will omit version strings from any other pending
-        # updates, e.g. Safari.
-        if echo "$UPDATE_CHECK" | /usr/bin/grep -q "macOS"; then
-            UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2}')"
-        else
-            UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2 $4}')"
-        fi
+        UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2 $4}')"
     fi
     # Convert update list from multiline to comma-separated list.
     UPDATE_LIST="$(echo "$UPDATE_LIST" | /usr/bin/tr '\n' ',' | /usr/bin/sed 's/^ *//; s/,/, /g; s/, $//')"
@@ -295,7 +298,7 @@ format_update_list () {
     elif [[ "$COMMA_COUNT" -eq 1 ]]; then
         UPDATE_LIST="$(echo "$UPDATE_LIST" | sed 's/\(.*\),/\1 and/')"
     fi
-    # Populate the list of pending updates in message text.
+    # Populate the list of required updates in messaging.
     MSG_INSTALL_OR_DEFER="$(echo "$MSG_INSTALL_OR_DEFER" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
     MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
     MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed "s/%UPDATE_LIST%/${UPDATE_LIST}/")"
@@ -310,8 +313,7 @@ format_update_list () {
 display_act_msg () {
 
     # Display persistent HUD with update prompt message.
-    echo "Killing any active jamfHelper notifications..."
-    /usr/bin/killall jamfHelper 2>"/dev/null"
+    quit_jamfhelper
     echo "Displaying \"install updates\" message for $(( UPDATE_DELAY / 60 )) minutes before automatically applying updates..."
     "$JAMFHELPER" -windowType "utility" -windowPosition "ur" -title "$MSG_INSTALL_HEADING" -description "$MSG_INSTALL" -icon "$MESSAGING_LOGO" -button1 "$INSTALL_BUTTON" -defaultButton 1 -alignCountdown "right" -timeout "$UPDATE_DELAY" -countdown >"/dev/null"
 
@@ -320,42 +322,38 @@ display_act_msg () {
 
 }
 
-# Opens System Preferences -> Software Update, optionally prompting user to
-# install updates via HUD message and automatically applying the update when
-# able.
+# Opens Software Update, optionally prompting user to install updates via
+# HUD message and automatically applying the update when able.
 install_updates () {
 
     # If manual updates are enabled, inform the user of required updates and
-    # open the Software Update window.
+    # open Software Update.
     if [[ "$MANUAL_UPDATES" = "True" ]]; then
 
         echo "Script has been configured to have user run updates manually."
         # If persistent notification is disabled and there is still deferral
         # time left, just open Software Update once.
         if [[ "$DISABLE_POST_INSTALL_ALERT_CUSTOM" -eq 1 ]] && (( DEFER_TIME_LEFT > 0 )) ; then
-        echo "Persistent alerting is disabled with deferral time remaining. Opening Software Update a single time..."
 
-        # Open System Preferences -> Software Update in current user context.
-        /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
+            echo "Persistent alerting is disabled with deferral time remaining. Opening Software Update a single time..."
+            # Open Software Update in current user context.
+            /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
 
         # Display a persistent alert while opening Software Update and repeat
         # until the user manually runs updates.
         else
-            echo "Displaying persistent alert until updates are applied..."
 
+            echo "Displaying persistent alert until updates are applied..."
             # Loop this check until softwareupdate --list shows no more pending
             # recommended updates.
             while [[ $(/usr/sbin/softwareupdate --list) == *"Recommended: YES"* ]]; do
 
-                # Clear out jamfHelper alert to prevent pileups.
-                echo "Killing any active jamfHelper notifications..."
-                /usr/bin/killall jamfHelper 2>"/dev/null"
-
                 # Display persistent HUD with update prompt message.
-                echo "Prompting to install updates now and opening System Preferences -> Software Update..."
+                quit_jamfhelper
+                echo "Prompting to install updates now and opening Software Update..."
                 "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_NOW_HEADING" -description "$MSG_INSTALL_NOW" -lockHUD &
 
-                # Open System Preferences -> Software Update in current user context.
+                # Open Software Update in current user context.
                 /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
 
                 # Leave the alert up for 60 seconds before looping.
@@ -366,7 +364,9 @@ install_updates () {
         fi
 
     else
+
         # Display HUD with updating message.
+        quit_jamfhelper
         "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
 
         # Install Apple system updates.
@@ -384,7 +384,7 @@ install_updates () {
 
         # Trigger restart if script found an update which requires it.
         if [[ "$INSTALL_WHICH" = "all" ]]; then
-            # Shut down the Mac if BridgeOS received an update requiring it.
+            # Shut down the Mac (instead of restarting) if an update requires it.
             if [[ "$UPDATE_OUTPUT_CAPTURE" == *"select Shut Down from the Apple menu"* ]]; then
                 trigger_restart "shut down"
             # Otherwise, restart the Mac.
@@ -408,8 +408,7 @@ install_updates () {
 # /private/tmp for deletion on a subsequent restart.
 clean_up () {
 
-    echo "Killing any active jamfHelper notifications..."
-    /usr/bin/killall jamfHelper 2>"/dev/null"
+    quit_jamfhelper
 
     echo "Cleaning up stored plist values..."
     /usr/bin/defaults delete "$PLIST" 2>"/dev/null"
@@ -551,9 +550,12 @@ echo "Starting $(/usr/bin/basename "$0"). Performing validation and error checki
 # Define custom $PATH.
 PATH="/usr/sbin:/usr/bin:/usr/local/bin:${PATH}"
 
-# Bail out if the jamfHelper doesn't exist.
+# Quit any running instances of jamfHelper.
 JAMFHELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
-if [[ ! -x "$JAMFHELPER" ]]; then
+if [[ -e "$JAMFHELPER" ]]; then
+    quit_jamfhelper
+# Bail out if the jamfHelper doesn't exist.
+else
     bail_out "❌ ERROR: The jamfHelper binary must be present in order to run this script."
 fi
 
@@ -563,6 +565,12 @@ if [[ ! -e "$JAMF_BINARY" ]]; then
     bail_out "❌ ERROR: The jamf binary must be present in order to run this script."
 fi
 
+# Bail out if Jamf Pro URL is undefined in local plist.
+JAMF_PRO_URL=$(/usr/bin/defaults read "/Library/Preferences/com.jamfsoftware.jamf" jss_url 2>"/dev/null")
+if [[ -z "$JAMF_PRO_URL" ]]; then
+    bail_out "❌ ERROR: There is no Jamf Pro URL stored."
+fi
+
 # Determine platform architecture.
 PLATFORM_ARCH="$(/usr/bin/arch)"
 
@@ -570,12 +578,12 @@ PLATFORM_ARCH="$(/usr/bin/arch)"
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $2}')
 
-# This script has currently been tested in macOS 10.14, macOS 10.15, macOS 11,
-# and macOS 12. It will exit with error for any other macOS versions.
+# This script has currently been tested in macOS 10.15, macOS 11, macOS 12,
+# and macOS 13. It will exit with error for any other macOS versions.
 # When new versions of macOS are released, this logic should be updated after
 # the script has been tested successfully.
-if [[ "$OS_MAJOR" -lt 10 ]] || [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 14 ]] || [[ "$OS_MAJOR" -gt 12 ]]; then
-    bail_out "❌ ERROR: This script supports macOS 10.14 Mojave, macOS 10.15 Catalina, macOS 11 Big Sur, and macOS 12 Monterey, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
+if [[ "$OS_MAJOR" -lt 10 ]] || [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 15 ]] || [[ "$OS_MAJOR" -gt 13 ]]; then
+    bail_out "❌ ERROR: This script supports macOS 10.15 Catalina, macOS 11 Big Sur, macOS 12 Monterey, and macOS 13 Ventura, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
 fi
 
 # Determine software update custom catalog URL if defined. Used for running beta
@@ -661,12 +669,16 @@ fi
 echo "Manual updates: ${MANUAL_UPDATES}"
 
 # Check for a custom messaging logo image, otherwise default to the Software
-# Update preference pane icon.
+# Update icon.
 if [[ -n "$MESSAGING_LOGO_CUSTOM" ]] && [[ -f "$MESSAGING_LOGO_CUSTOM" ]]; then
     MESSAGING_LOGO="$MESSAGING_LOGO_CUSTOM"
 else
     echo "Messaging logo undefined by admininstrator, or not found at specified path. Using default value."
-    MESSAGING_LOGO="/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns"
+    if [[ "$OS_MAJOR" -lt 13 ]]; then
+        MESSAGING_LOGO="/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns"
+    else
+        MESSAGING_LOGO="/System/Library/PrivateFrameworks/SoftwareUpdate.framework/Versions/Current/Resources/SoftwareUpdate.icns"
+    fi
 fi
 echo "Messaging logo: ${MESSAGING_LOGO}"
 
@@ -795,7 +807,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
             # If manual updates are enabled,
             # track the next deferral before proceeding.
-            if [[ "$MANUAL_UPDATES_CUSTOM" -eq 1 ]]; then
+            if [[ "$MANUAL_UPDATES" = "True" ]]; then
                 echo "Manual updates are enabled, so we'll continue to track the next deferral date in case the update isn't run in a timely manner."
                 NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
                 if (( FORCE_DATE < NEXT_PROMPT )); then

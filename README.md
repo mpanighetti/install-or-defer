@@ -2,7 +2,7 @@
 
 This framework will enforce the installation of pending Apple security updates on Jamf Pro-managed Macs. Users will have the option to __Install__ or __Defer__. After a specified amount of time passes, the Mac will be prompted to install the updates, then restart automatically if any updates require it.
 
-This workflow is most useful for updates that require a restart and include important security-related patches (e.g. macOS Catalina 10.15.7 Supplemental), but also applies to security updates that don't require a restart (e.g. Safari 14.0.3). Basically, anything Software Update marks as "recommended" or requiring a restart is in scope.
+This workflow is most useful for updates that require a restart and include important security-related patches (e.g. macOS Ventura 13.1), but also applies to application updates that don't require a restart (e.g. Safari 16.2). Basically, anything Software Update marks as "recommended" or requiring a restart is in scope.
 
 This framework is distributed in the form of a [munkipkg](https://github.com/munki/munki-pkg) project, which allows easy creation of a new installer package when changes are made to the script or to the LaunchDaemon that runs it. See the [Installer creation](#installer-creation) section below for specific steps on creating the installer for this framework.
 
@@ -11,7 +11,7 @@ This framework is distributed in the form of a [munkipkg](https://github.com/mun
 
 Here's what needs to be in place in order to use this framework:
 
-- The current version of this framework officially supports __macOS Mojave, Catalina, Big Sur, and Monterey__, but older script versions should continue to function normally for previous macOS releases (note, however, that those versions of macOS are no longer receiving regular security updates from Apple and thus may not benefit from this framework).
+- The current version of this framework officially supports __macOS Catalina, Big Sur, Monterey, and Ventura__, but older script versions should continue to function normally for previous macOS releases (note, however, that those versions of macOS are no longer receiving regular security updates from Apple and thus may not benefit from this framework).
 - Target Macs must be __enrolled in Jamf Pro__ and have the `jamfHelper` binary installed.
 
 ### Optional
@@ -57,8 +57,8 @@ The framework has a few limitations of note:
 
 - Sequential updates cannot be installed as a group (e.g. Security Update 2022-003 Catalina cannot be installed unless 10.15.7 is already installed). If multiple sequential security updates are available, they are treated as two separate rounds of prompting/deferring. As a result, Macs requiring sequential updates may take more than one deferral and enforcement cycle (default 3 days) to be fully patched.
 - Reasonable attempts have been made to make this workflow enforceable, but there's nothing stopping an administrator of a Mac from unloading the LaunchDaemon or resetting the preference file.
-- On Apple Silicon Macs, running `softwareupdate --download` and `softwareupdate --install` via background script are unsupported. When this framework is run on an Apple Silicon Mac, enforcement takes a "softer" form, instead opening System Preferences -> Software Update and leaving a persistent prompt in place until the updates are applied. Note that this workflow requires the Software Update preference pane to be available to a user with a [secure token and volume ownership](https://support.apple.com/guide/deployment/use-secure-and-bootstrap-tokens-dep24dbdcf9e/), so that they can apply available software updates and restart their Mac.
-- Several versions of macOS Big Sur and macOS Monterey have known software update reliability issues, resulting in inconsistently presenting new updates as available or failing to install updates. Some measures have been taken to improve reliability in the latest releases of this framework, but ultimately a resolution will require a fix from Apple. The hope is that these bugs will be fixed in a future macOS software update; in the meantime, see [#54](https://github.com/mpanighetti/install-or-defer/issues/54) and [#76](https://github.com/mpanighetti/install-or-defer/issues/76) for ongoing discussions, and reach out to Apple Enterprise Support to increase signal on the issue.
+- On Apple Silicon Macs, running `softwareupdate --download` and `softwareupdate --install` via background script are unsupported. When this framework is run on an Apple Silicon Mac, enforcement takes a "softer" form, instead opening Software Update and leaving a persistent prompt in place until the updates are applied. Note that this workflow requires the Software Update preference pane to be available to a user with a [secure token and volume ownership](https://support.apple.com/guide/deployment/use-secure-and-bootstrap-tokens-dep24dbdcf9e/), so that they can apply available software updates and restart their Mac.
+- macOS Big Sur, macOS Monterey, and macOS Ventura have known reliability issues when attempting to update your Mac using the `softwareupdate` binary, resulting in inconsistently presenting new updates as available or failing to install updates. Some measures have been taken to improve reliability in the latest releases of this framework, but ultimately a resolution will require a fix from Apple. The hope is that these bugs will be fixed in a future macOS software update; in the meantime, see [#54](https://github.com/mpanighetti/install-or-defer/issues/54) and [#76](https://github.com/mpanighetti/install-or-defer/issues/76) for ongoing discussions, and reach out to Apple Enterprise Support to increase signal on the issue.
 
 
 ## Settings customization
@@ -78,7 +78,7 @@ You can customize many settings using a configuration profile targeting the `$BU
 |--------------------------|------------------|---------------|----------------|-------------|
 |`InstallButtonLabel`      |string|Install|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The label of the install button. Keep this string short since `jamfHelper` will cut off longer button labels.|
 |`DeferButtonLabel`        |string|Defer|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|The label of the defer button. Keep this string short since `jamfHelper` will cut off longer button labels.|
-|`DisablePostInstallAlert` |boolean|`false`|[5.0.4](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.4)|Whether to suppress the persistent alert to run updates. If set to True, clicking the install button will only launch the Software Update pane without displaying a persistent alert to upgrade, until the deadline date is reached.|
+|`DisablePostInstallAlert` |boolean|`false`|[5.0.4](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.4)|Whether to suppress the persistent alert to run updates. If set to True, clicking the install button will only launch Software Update without displaying a persistent alert to upgrade, until the deadline date is reached.|
 |`MessagingLogo`           |string|Software Update icon|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|File path to a logo that will be used in messaging. Recommend 512px, PNG format.|
 |`SupportContact`          |string|IT|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|Contact information for technical support included in messaging alerts. Recommend using a team name (e.g. "Technical Support"), email address (e.g. "support@contoso.com"), or chat channel (e.g. "#technical-support").|
 
@@ -100,7 +100,7 @@ You can customize many settings using a configuration profile targeting the `$BU
 | Key                      | Type             | Default Value |Minimum Version | Description |
 |--------------------------|------------------|---------------|----------------|-------------|
 |`DiagnosticLog`           |boolean|`false`|[5.0](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0)|Whether to write to a persistent log file at `/var/log/install-or-defer.log`. If undefined or set to false, the script writes all output to the system log for live diagnostics.|
-|`ManualUpdates`           |boolean|Apple Silicon: `true`<br />Intel: `false`|[5.0.3](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.3)|Whether to prompt users to run updates manually via System Preferences. This is always the behavior on Apple Silicon Macs and cannot be overridden. If undefined or set to false on Intel Macs, the script triggers updates via scripted `softwareupdate` commands.|
+|`ManualUpdates`           |boolean|Apple Silicon: `true`<br />Intel: `false`|[5.0.3](https://github.com/mpanighetti/install-or-defer/releases/tag/v5.0.3)|Whether to prompt users to run updates manually via Software Update. This is always the behavior on Apple Silicon Macs and cannot be overridden. If undefined or set to false on Intel Macs, the script triggers updates via scripted `softwareupdate` commands.|
 
 #### Create a configuration profile in Jamf Pro
 
@@ -216,22 +216,17 @@ Upload this package (created with munkipkg above) to the Jamf Pro server via Jam
 
 Create a smart group for each software update or operating system patch you wish to enforce. Here are some examples to serve as guides, using regular expressions to allow for fewer criteria:
 
-- __Critical Update Needed: macOS Catalina 10.15.7__
-    - `Operating System Build` `matches regex` `^19[A-G]`
-- __Critical Update Needed: Security Update 2021-002 Mojave__
-    - `Operating System Build` `matches regex` `^18G\d{1,3}$`
-    - `or` `Operating System Build` `matches regex` `^18G[1-7]\d{3}$`
-    - `or` `Operating System Build` `matches regex` `^18G80[0-1]\d$`
-    - `or` `Operating System Build` `matches regex` `^18G802[0-1]$`
+#### macOS update regex
 
-For completion's sake, here's an example of an update that won't require a restart but is still tagged as `Recommended: YES` in the `softwareupdate` catalog:
+- __Critical Update Needed: macOS Ventura 13.1__
+    - `Operating System Build` `matches regex` `^22[A-B]`
 
-- __Critical Update Needed: Safari 14.0.3__
+#### Application update regex
+
+- __Critical Update Needed: Safari 16.2__
     - `Application Title` `is` `Safari.app`
-    - `and` `(` `Application Version` `matches regex` `^\d\.`
-    - `or` `Application Version` `matches regex` `^1[0-3]\.`
-    - `or` `Application Version` `matches regex` `^14\.0$`
-    - `or` `Application Version` `matches regex` `^14\.0\.[0-2]` `)`
+    - `and` `(` `Application Version` `matches regex` `^(\d|1[0-5])\.`
+    - `or` `Application Version` `matches regex` `^16\.[0-1]$` `)`
 
 
 ### Policy
