@@ -15,8 +15,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2023-02-03
-#         Version:  6.0
+#   Last Modified:  2023-02-21
+#         Version:  6.0.1
 #
 ###
 
@@ -202,13 +202,10 @@ quit_jamfhelper () {
 
 }
 
-# Deletes cached results of previous software update checks, force-restarts the
-# com.apple.softwareupdated system service, and sleeps for a period specified by
-# the function run command. Necessary to make repeated update checks more
-# reliable in macOS Big Sur and later.
+# Deletes cached results of previous software update checks, force-restarts the com.apple.softwareupdated system service, and sleeps for a period specified by the function run command. This is a workaround for reliability issues with repeated software update checks in macOS Big Sur, macOS Monterey, and macOS Ventura (13.2.1 and older).
 restart_softwareupdate_daemon () {
 
-    if [[ "$OS_MAJOR" -ge 11 ]]; then
+    if [[ "$OS_MAJOR" -eq 11 ]] || [[ "$OS_MAJOR" -eq 12 ]] || [[ "$OS_MAJOR" -eq 13 && "$OS_MINOR" -lt 3 ]]; then
         echo "Deleting cached update check data..."
         /usr/bin/defaults delete "/Library/Preferences/com.apple.SoftwareUpdate.plist"
         /bin/rm -f "/Library/Preferences/com.apple.SoftwareUpdate.plist"
@@ -233,11 +230,8 @@ check_for_updates () {
     # Capture output of softwareupdate --list, omitting any lines containing
     # updates deferred via MDM.
     UPDATE_CHECK="$(/usr/sbin/softwareupdate --list 2>&1 | /usr/bin/grep -v 'Deferred: YES')"
-    # For Macs running macOS Monterey, remove any lines containing "macOS
-    # Ventura". This works around an issue where Monterey's softwareupdate
-    # output includes minor updates for later major macOS releases deferred
-    # via MDM and does not identify them as deferred.
-    if [ "$OS_MAJOR" -eq 12 ]; then
+    # Remove any softwareupdate --list lines containing "macOS Ventura" for older macOS versions. This is a workaround for an issue where the softwareupdate output includes minor updates for later major macOS releases deferred via MDM and may not identify them as deferred in macOS Big Sur and macOS Monterey.
+    if [[ "$OS_MAJOR" -lt 13 ]]; then
         UPDATE_CHECK=$(echo "$UPDATE_CHECK" | /usr/bin/grep -v "macOS Ventura")
     fi
 
