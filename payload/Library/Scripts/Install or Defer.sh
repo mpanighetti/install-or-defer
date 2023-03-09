@@ -719,10 +719,10 @@ if (( DEFER_TIME_LEFT > 0 )); then
             kill -9 "$JAMFHELPER_PID"
             bail_out "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
 
-        # User clicked the defer button.
+        # User clicked the defer button, or the alert timed out.
         elif [[ "$PROMPT" -eq 2 ]]; then
 
-            echo "User clicked ${DEFER_BUTTON} ${PROMPT_ELAPSED_STR}."
+            echo "User clicked ${DEFER_BUTTON} (or the alert timed out) ${PROMPT_ELAPSED_STR}."
             NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
             if (( FORCE_DATE < NEXT_PROMPT )); then
                 NEXT_PROMPT="$FORCE_DATE"
