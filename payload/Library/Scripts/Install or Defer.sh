@@ -15,22 +15,19 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2023-02-03
-#         Version:  6.0
+#   Last Modified:  2023-03-09
+#         Version:  6.0.1
 #
 ###
 
 
 ########################## FILE PATHS AND IDENTIFIERS #########################
 
-# Path to a plist file that is used to store settings locally. Omit ".plist"
-# extension.
-PLIST="/Library/Preferences/com.github.mpanighetti.install-or-defer"
-
-# The identifier of the LaunchDaemon that is used to call this script, which
-# should match the file name in the payload/Library/LaunchDaemons folder. Omit
-# ".plist" extension.
+# The bundle identifier of the LaunchDaemon that is used to call this script. This should match the Label key in the LaunchDaemon, and is generally the same as the LaunchDaemon's filename (minus the ".plist" extension).
 BUNDLE_ID="com.github.mpanighetti.install-or-defer"
+
+# Path to a plist file that is used to store settings locally. By default, this uses the script's bundle identifier as its filename. Omit ".plist" extension from the file path.
+PLIST="/Library/Preferences/${BUNDLE_ID}"
 
 # The file path of this script. Used to assist with resource file clean-up.
 SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
@@ -39,25 +36,18 @@ SCRIPT_PATH="/Library/Scripts/Install or Defer.sh"
 ################################## MESSAGING ##################################
 
 # The messages below use the following dynamic substitutions wherever found:
-#   - %DEADLINE_DATE% will be automatically replaced with the deadline date and
-#     time before updates are enforced.
-#   - %DEFER_HOURS% will be automatically replaced by the number of days, hours,
-#     or minutes remaining in the deferral period.
-#   - %SUPPORT_CONTACT% will be automatically replaced with "IT" or a custom
-#     value set via configuration profile key.
-#   - %UPDATE_LIST% will be automatically replaced with a comma-separated list
-#     of all recommended updates found in a Software Update check.
-#   - The section in the {{double curly brackets}} will be removed when this
-#     message is displayed for the final time before the deferral deadline.
-#   - The sections in the <<double comparison operators>> will be removed if a
-#     restart is not required for the pending updates.
+# - %DEADLINE_DATE% will be automatically replaced with the deadline date and time before updates are enforced.
+# - %DEFER_HOURS% will be automatically replaced by the number of days, hours, or minutes remaining in the deferral period.
+# - %SUPPORT_CONTACT% will be automatically replaced with "IT" or a custom value set via configuration profile key.
+# - %UPDATE_LIST% will be automatically replaced with a comma-separated list of all recommended updates found in a Software Update check.
+# - The section in the {{double curly brackets}} will be removed when this message is displayed for the final time before the deferral deadline.
+# - The sections in the <<double comparison operators>> will be removed if a restart is not required for the pending updates.
 
-# The message users will receive when updates are available, shown above the
-# install and defer buttons.
+# The message users will receive when updates are available, shown above the install and defer buttons.
 MSG_INSTALL_OR_DEFER_HEADING="Updates are available"
 MSG_INSTALL_OR_DEFER="Your Mac needs to install updates for %UPDATE_LIST% by %DEADLINE_DATE%.
 
-Please save your work and install all available updates. {{If now is not a good time, you may defer to delay this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they are installed>>.
+Please save your work, connect a power adapter, and install all available updates. {{If now is not a good time, you may defer to delay this message until later. }}These updates will be required after %DEFER_HOURS%<<, forcing your Mac to restart after they are installed>>.
 
 Please contact %SUPPORT_CONTACT% for any questions."
 
@@ -65,7 +55,7 @@ Please contact %SUPPORT_CONTACT% for any questions."
 MSG_INSTALL_HEADING="Please install updates now"
 MSG_INSTALL="Your Mac is about to install updates for %UPDATE_LIST%<< and restart>>.
 
-Please save your work and install all available updates before the deadline.<< Your Mac will restart when all updates are finished installing.>>
+Please save your work, connect a power adapter, and install all available updates before the deadline.<< Your Mac will restart when all updates are finished installing.>>
 
 Please contact %SUPPORT_CONTACT% for any questions."
 
@@ -73,101 +63,59 @@ Please contact %SUPPORT_CONTACT% for any questions."
 MSG_INSTALL_NOW_HEADING="Updates are available"
 MSG_INSTALL_NOW="Your Mac needs to install updates for %UPDATE_LIST%<< which require a restart>>.
 
-Please save your work, open Software Update, and install all available updates.<< Your Mac will restart when all updates are finished installing.>>
+Please save your work, connect a power adapter, then open Software Update and install all available updates.<< Your Mac will restart when all updates are finished installing.>>
 
 Please contact %SUPPORT_CONTACT% for any questions."
 
 # The message users will receive while updates are installing in the background.
 MSG_UPDATING_HEADING="Installing updates..."
-MSG_UPDATING="Installing updates for %UPDATE_LIST% in the background.<< Your Mac will restart automatically when this is finished.>> Please contact %SUPPORT_CONTACT% for any questions."
+MSG_UPDATING="Installing updates for %UPDATE_LIST% in the background. Please leave a power adapter connected until updates are finished running.<< Your Mac will restart automatically when this is finished.>> Please contact %SUPPORT_CONTACT% for any questions."
 
 
 ######################### CURRENT USER CONTEXT ################################
 
-# Identify current user and UID. Used for any functions that need to run in the
-# context of the logged-in user account.
+# Identify current user and UID. Used for any functions that need to run in the context of the logged-in user account.
 CURRENT_USER=$(/usr/bin/stat -f%Su "/dev/console")
 USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
 
 
 ######################## CONFIGURATION PROFILE SETTINGS #######################
 
-# Checks for whether any custom settings have been applied via a configuration
-# profile, in order to override script defaults with these custom values. To
-# customize these values, make a configuration profile for $BUNDLE_ID and make
-# new selections for each specified key.
+# Checks for whether any custom settings have been applied via a configuration profile, in order to override script defaults with these custom values. To customize these values, make a configuration profile for $BUNDLE_ID and make new selections for each specified key.
 
 ### ALERTING ###
-# - InstallButtonLabel (String). The label of the install button. Defaults to
-# "Install".
+# - InstallButtonLabel (String). The label of the install button. Defaults to "Install".
 INSTALL_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" InstallButtonLabel 2>"/dev/null")
-# - DeferButtonLabel (String). The label of the defer button. Defaults to
-# "Defer".
+# - DeferButtonLabel (String). The label of the defer button. Defaults to "Defer".
 DEFER_BUTTON_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DeferButtonLabel 2>"/dev/null")
-# - DisablePostInstallAlert (Boolean). Whether to suppress the persistent alert
-# to run updates. Defaults to False. If set to True, clicking the install button
-# will only launch Software Update without displaying a persistent alert to
-# upgrade, until the deadline date is reached.
+# - DisablePostInstallAlert (Boolean). Whether to suppress the persistent alert to run updates. Defaults to False. If set to True, clicking the install button will only launch Software Update without displaying a persistent alert to upgrade, until the deadline date is reached.
 DISABLE_POST_INSTALL_ALERT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DisablePostInstallAlert 2>"/dev/null")
-# - MessagingLogo (String). File path to a logo that will be used in messaging.
-# Recommend 512px, PNG format. Defaults to the Software Update icon.
+# - MessagingLogo (String). File path to a logo that will be used in messaging. Recommend 512px, PNG format. Defaults to the Software Update icon.
 MESSAGING_LOGO_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MessagingLogo 2>"/dev/null")
-# - SupportContact (String). Contact information for technical support included
-# in messaging alerts. Recommend using a team name (e.g. "Technical Support"),
-# email address (e.g. "support@contoso.com"), or chat channel (e.g.
-# "#technical-support"). Defaults to "IT".
+# - SupportContact (String). Contact information for technical support included in messaging alerts. Recommend using a team name (e.g. "Technical Support"), email address (e.g. "support@contoso.com"), or chat channel (e.g. "#technical-support"). Defaults to "IT".
 SUPPORT_CONTACT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SupportContact 2>"/dev/null")
 
 ### TIMING ###
-# - DeferralPeriod (Integer). Number of seconds between when the user clicks
-# "Defer" and the next prompt appears. Defaults to 14400 = 4 hours.
+# - DeferralPeriod (Integer). Number of seconds between when the user clicks the defer button and the next prompt appears. Defaults to 14400 = 4 hours.
 DEFERRAL_PERIOD_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DeferralPeriod 2>"/dev/null")
-# - HardRestartDelay (Integer). Number of seconds to wait between attempting a
-# soft restart and forcing a restart. This value must be less than the
-# MaxDeferralTime value. Defaults to 300 (5 minutes).
+# - HardRestartDelay (Integer). Number of seconds to wait between attempting a soft restart and forcing a restart. This value must be less than the MaxDeferralTime value. Defaults to 300 (5 minutes).
 HARD_RESTART_DELAY_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" HardRestartDelay 2>"/dev/null")
-# - MaxDeferralTime (Integer). Number of seconds between the first script run
-# and the updates being enforced. Defaults to 259200 (3 days).
+# - MaxDeferralTime (Integer). Number of seconds between the first script run and the updates being enforced. Defaults to 259200 (3 days).
 MAX_DEFERRAL_TIME_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" MaxDeferralTime 2>"/dev/null")
-# - PromptTimeout (Integer). Number of seconds to wait before timing out the
-# Install or Defer prompt. This value must be less than the DeferralPeriod
-# value. Defaults to 3600 (1 hour).
+# - PromptTimeout (Integer). Number of seconds to wait before timing out the Install or Defer prompt. This value must be less than the DeferralPeriod value. Defaults to 3600 (1 hour).
 PROMPT_TIMEOUT_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" PromptTimeout 2>"/dev/null")
-# - SkipDeferral (Boolean). Whether to bypass deferral time entirely and skip
-# straight to update enforcement (useful for script testing purposes). Defaults
-# to False. If set to True, this setting supersedes any values set for
-# MaxDeferralTime.
+# - SkipDeferral (Boolean). Whether to bypass deferral time entirely and skip straight to update enforcement (useful for script testing purposes). Defaults to False. If set to True, this setting supersedes any values set for MaxDeferralTime.
 SKIP_DEFERRAL_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" SkipDeferral 2>"/dev/null")
-# - UpdateDelay (Integer). Number of seconds to wait between displaying the
-# "install updates" message and applying updates, then attempting a soft
-# restart. Defaults to 600 (10 minutes).
+# - UpdateDelay (Integer). Number of seconds to wait between displaying the "install updates" message and applying updates, then attempting a soft restart. Defaults to 600 (10 minutes).
 UPDATE_DELAY_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" UpdateDelay 2>"/dev/null")
-# - WorkdayStartHour (Integer). The hour that a workday starts in your
-# organization. This value must be an integer between 0 and 22, and the end hour
-# must be later than the start hour. If the update deadline falls within this
-# window of time, it will be moved forward to occur at the end of the workday.
-# If WorkdayStartHour or WorkdayEndHour are undefined, deadlines will be
-# scheduled based on maximum deferral time and not account for the time of day
-# that the deadline lands.
+# - WorkdayStartHour and WorkdayEndHour (Integer). The hours that a workday starts and ends in your organization. These values must be integers, the start hour must be between 0 and 22, and the end hour must be between 1 and 23 and be later than the start hour. If the update deadline falls within this window of time, it will be moved forward to occur at the end of the workday. If WorkdayStartHour or WorkdayEndHour are undefined, deadlines will be scheduled based on maximum deferral time and not account for the time of day that the deadline lands.
 WORKDAY_START_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayStartHour 2>"/dev/null")
-# - WorkdayEndHour (Integer). The hour that a workday ends in your organization.
-# This value must be an integer between 1 and 23, and the end hour must be later
-# than the start hour. If the update deadline falls within this window of time,
-# it will be moved forward to occur at the end of the workday. If
-# WorkdayStartHour or WorkdayEndHour are undefined, deadlines will be scheduled
-# based on maximum deferral time and not account for the time of day that the
-# deadline lands.
 WORKDAY_END_HR_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" WorkdayEndHour 2>"/dev/null")
 
 ### BACKEND ###
-# - DiagnosticLog (Boolean). Whether to write to a persistent log file at
-# /var/log/install-or-defer.log. If undefined or set to false, the script writes
-# all output to the system log for live diagnostics.
+# - DiagnosticLog (Boolean). Whether to write to a persistent log file at /var/log/install-or-defer.log. If undefined or set to false, the script writes all output to the system log for live diagnostics.
 DIAGNOSTIC_LOG_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" DiagnosticLog 2>"/dev/null")
-# - ManualUpdates (Boolean). Whether to prompt users to run updates manually via
-# Software Update. This is always the behavior on Apple Silicon Macs and
-# cannot be overridden. If undefined or set to false on Intel Macs, the script
-# triggers updates via scripted softwareupdate commands.
+# - ManualUpdates (Boolean). Whether to prompt users to run updates manually via Software Update. This is always the behavior on Apple Silicon Macs and cannot be overridden. If undefined or set to false on Intel Macs, the script triggers updates via scripted softwareupdate commands.
 MANUAL_UPDATES_CUSTOM=$(/usr/bin/defaults read "/Library/Managed Preferences/${BUNDLE_ID}" ManualUpdates 2>"/dev/null")
 
 
@@ -202,13 +150,10 @@ quit_jamfhelper () {
 
 }
 
-# Deletes cached results of previous software update checks, force-restarts the
-# com.apple.softwareupdated system service, and sleeps for a period specified by
-# the function run command. Necessary to make repeated update checks more
-# reliable in macOS Big Sur and later.
+# Deletes cached results of previous software update checks, force-restarts the com.apple.softwareupdated system service, and sleeps for a period specified by the function run command. This is a workaround for reliability issues with repeated software update checks in macOS Big Sur, macOS Monterey, and macOS Ventura (13.2.1 and older).
 restart_softwareupdate_daemon () {
 
-    if [[ "$OS_MAJOR" -ge 11 ]]; then
+    if [[ "$OS_MAJOR" -eq 11 ]] || [[ "$OS_MAJOR" -eq 12 ]] || [[ "$OS_MAJOR" -eq 13 && "$OS_MINOR" -lt 3 ]]; then
         echo "Deleting cached update check data..."
         /usr/bin/defaults delete "/Library/Preferences/com.apple.SoftwareUpdate.plist"
         /bin/rm -f "/Library/Preferences/com.apple.SoftwareUpdate.plist"
@@ -224,42 +169,32 @@ restart_softwareupdate_daemon () {
 
 }
 
-# Checks for recommended macOS updates, or exits if no such updates are
-# available.
+# Checks for recommended macOS updates, or exits if no such updates are available.
 check_for_updates () {
 
     restart_softwareupdate_daemon "30"
     echo "Checking for pending macOS updates..."
-    # Capture output of softwareupdate --list, omitting any lines containing
-    # updates deferred via MDM.
+    # Capture output of softwareupdate --list, omitting any lines containing updates deferred via MDM.
     UPDATE_CHECK="$(/usr/sbin/softwareupdate --list 2>&1 | /usr/bin/grep -v 'Deferred: YES')"
-    # For Macs running macOS Monterey, remove any lines containing "macOS
-    # Ventura". This works around an issue where Monterey's softwareupdate
-    # output includes minor updates for later major macOS releases deferred
-    # via MDM and does not identify them as deferred.
-    if [ "$OS_MAJOR" -eq 12 ]; then
+    # Remove any softwareupdate --list lines containing "macOS Ventura" for older macOS versions. This is a workaround for an issue where the softwareupdate output includes minor updates for later major macOS releases deferred via MDM and may not identify them as deferred in macOS Big Sur and macOS Monterey.
+    if [[ "$OS_MAJOR" -lt 13 ]]; then
         UPDATE_CHECK=$(echo "$UPDATE_CHECK" | /usr/bin/grep -v "macOS Ventura")
     fi
 
-    # Determine whether any recommended macOS updates are available.
-    # If a restart is required for any pending updates, then install all
-    # available software updates.
+    # Determine whether any recommended macOS updates are available. If a restart is required for any pending updates, then install all available software updates.
     if echo "$UPDATE_CHECK" | /usr/bin/grep -q "restart"; then
         INSTALL_WHICH="all"
         RESTART_FLAG="--restart"
-        # Remove "<<" and ">>" but leave the text between
-        # (retains restart warnings).
+        # Remove "<<" and ">>" but leave the text between (retains restart warnings).
         MSG_INSTALL_OR_DEFER="$(echo "$MSG_INSTALL_OR_DEFER" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
         MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed 's/[\<\<|\>\>]//g')"
-    # If any updates do not require a restart but are recommended,
-    # only install recommended updates.
+    # If any updates do not require a restart but are recommended, only install recommended updates.
     elif echo "$UPDATE_CHECK" | /usr/bin/tr '[:upper:]' '[:lower:]' | /usr/bin/grep -q "recommended"; then
         INSTALL_WHICH="recommended"
         RESTART_FLAG=""
-        # Remove "<<" and ">>" including all the text between
-        # (removes restart warnings).
+        # Remove "<<" and ">>" including all the text between (removes restart warnings).
         MSG_INSTALL_OR_DEFER="$(echo "$MSG_INSTALL_OR_DEFER" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed 's/\<\<.*\>\>//g')"
         MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed 's/\<\<.*\>\>//g')"
@@ -278,11 +213,7 @@ check_for_updates () {
 # Parse software update list for user-facing messaging.
 format_update_list () {
 
-    # Capture update names and versions.  Omit the Version column if the
-    # update list includes a "macOS" update, as those updates tend to
-    # already include version information in the Title column.
-    # Note that this will omit version strings from any other pending
-    # updates, e.g. Safari.
+    # Capture update names and versions.  Omit the Version column if the update list includes a "macOS" update, as those updates tend to already include version information in the Title column. Note that this will omit version strings from any other pending updates, e.g. Safari.
     if echo "$UPDATE_CHECK" | /usr/bin/grep -q "macOS"; then
         UPDATE_LIST="$(echo "$UPDATE_CHECK" | /usr/bin/awk -F'[:,]' '/Title:/ {print $2}')"
     else
@@ -290,8 +221,7 @@ format_update_list () {
     fi
     # Convert update list from multiline to comma-separated list.
     UPDATE_LIST="$(echo "$UPDATE_LIST" | /usr/bin/tr '\n' ',' | /usr/bin/sed 's/^ *//; s/,/, /g; s/, $//')"
-    # Reformat update list to replace last comma with ", and" or " and" as
-    # needed for legibility. In this house, we use Oxford commas.
+    # Reformat update list to replace last comma with ", and" or " and" as needed for legibility. In this house, we use Oxford commas.
     COMMA_COUNT="$(echo "$UPDATE_LIST" | /usr/bin/tr -dc ',' | /usr/bin/wc -c | /usr/bin/bc)"
     if [[ "$COMMA_COUNT" -gt 1 ]]; then
         UPDATE_LIST="$(echo "$UPDATE_LIST" | sed 's/\(.*\),/\1, and/')"
@@ -308,8 +238,7 @@ format_update_list () {
 
 }
 
-# Displays an onscreen message instructing the user to apply updates.
-# This function is invoked after the deferral deadline passes.
+# Displays an onscreen message instructing the user to apply updates. This function is invoked after the deferral deadline passes.
 display_act_msg () {
 
     # Display persistent HUD with update prompt message.
@@ -322,30 +251,25 @@ display_act_msg () {
 
 }
 
-# Opens Software Update, optionally prompting user to install updates via
-# HUD message and automatically applying the update when able.
+# Opens Software Update, optionally prompting user to install updates via HUD message and automatically applying the update when able.
 install_updates () {
 
-    # If manual updates are enabled, inform the user of required updates and
-    # open Software Update.
+    # If manual updates are enabled, inform the user of required updates and open Software Update.
     if [[ "$MANUAL_UPDATES" = "True" ]]; then
 
         echo "Script has been configured to have user run updates manually."
-        # If persistent notification is disabled and there is still deferral
-        # time left, just open Software Update once.
+        # If persistent notification is disabled and there is still deferral time left, just open Software Update once.
         if [[ "$DISABLE_POST_INSTALL_ALERT_CUSTOM" -eq 1 ]] && (( DEFER_TIME_LEFT > 0 )) ; then
 
             echo "Persistent alerting is disabled with deferral time remaining. Opening Software Update a single time..."
             # Open Software Update in current user context.
             /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
 
-        # Display a persistent alert while opening Software Update and repeat
-        # until the user manually runs updates.
+        # Display a persistent alert while opening Software Update and repeat until the user manually runs updates.
         else
 
             echo "Displaying persistent alert until updates are applied..."
-            # Loop this check until softwareupdate --list shows no more pending
-            # recommended updates.
+            # Loop this check until softwareupdate --list shows no more pending recommended updates.
             while [[ $(/usr/sbin/softwareupdate --list) == *"Recommended: YES"* ]]; do
 
                 # Display persistent HUD with update prompt message.
@@ -372,9 +296,7 @@ install_updates () {
         # Install Apple system updates.
         restart_softwareupdate_daemon "30"
         echo "Installing ${INSTALL_WHICH} Apple system updates..."
-        # macOS Big Sur and later automatically trigger a restart as part of the
-        # softwareupdate action, meaning the script will not be able to run its
-        # clean_up functions until the next time it is run.
+        # macOS Big Sur and later automatically trigger a restart as part of the softwareupdate action, meaning the script will not be able to run its clean_up functions until the next time it is run.
         if [[ "$OS_MAJOR" -gt 10 ]] && [[ "$INSTALL_WHICH" = "all" ]]; then
             echo "System will restart as soon as the update is finished. Cleanup tasks will run on a subsequent update check."
         fi
@@ -393,19 +315,14 @@ install_updates () {
             fi
         fi
 
-        # Run another software update check to see if the Mac still has pending
-        # recommended updates. This could happen if updates failed to run, or if
-        # secondary updates are made available after the first updates were
-        # completed. If any such updates are still pending, leave script
-        # framework in place to allow for enforcement on the next scheduled run.
+        # Run another software update check to see if the Mac still has pending recommended updates. This could happen if updates failed to run, or if secondary updates are made available after the first updates were completed. If any such updates are still pending, leave script framework in place to allow for enforcement on the next scheduled run.
         check_for_updates
 
     fi
 
 }
 
-# Initializes plist values and moves all script and LaunchDaemon resources to
-# /private/tmp for deletion on a subsequent restart.
+# Initializes plist values and moves all script and LaunchDaemon resources to /private/tmp for deletion on a subsequent restart.
 clean_up () {
 
     quit_jamfhelper
@@ -428,9 +345,7 @@ clean_up () {
 
 }
 
-# Restarts or shuts down the system depending on parameter input. Attempts a
-# "soft" restart, waits a specified amount of time, and then forces a "hard"
-# restart.
+# Restarts or shuts down the system depending on parameter input. Attempts a "soft" restart, waits a specified amount of time, and then forces a "hard" restart.
 trigger_restart () {
 
     clean_up
@@ -439,8 +354,7 @@ trigger_restart () {
     echo "Attempting a \"soft\" ${1}..."
     /bin/launchctl asuser "$USER_ID" osascript -e "tell application \"System Events\" to ${1}"
 
-    # After specified delay, kill all apps forcibly, which clears the way for
-    # an unobstructed restart.
+    # After specified delay, kill all apps forcibly, which clears the way for an unobstructed restart.
     echo "Waiting $(( HARD_RESTART_DELAY / 60 )) minutes before forcing a \"hard\" ${1}..."
     /bin/sleep "$HARD_RESTART_DELAY"
     echo "$(( HARD_RESTART_DELAY / 60 )) minutes have elapsed since \"soft\" ${1} was attempted. Forcing \"hard\" ${1}..."
@@ -538,8 +452,7 @@ echo "Hard restart delay: $(convert_seconds "$HARD_RESTART_DELAY")"
 
 ######################## VALIDATION AND ERROR CHECKING ########################
 
-# Checks for a custom diagnostic log preference,
-# otherwise defaults to copying all output to the system log.
+# Checks for a custom diagnostic log preference, otherwise defaults to copying all output to the system log.
 if [[ "$DIAGNOSTIC_LOG_CUSTOM" -eq 1 ]]; then
     exec 1>>"/var/log/install-or-defer.log" 2>&1
 else
@@ -578,18 +491,12 @@ PLATFORM_ARCH="$(/usr/bin/arch)"
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $2}')
 
-# This script has currently been tested in macOS 10.15, macOS 11, macOS 12,
-# and macOS 13. It will exit with error for any other macOS versions.
-# When new versions of macOS are released, this logic should be updated after
-# the script has been tested successfully.
+# This script has currently been tested in macOS 10.15, macOS 11, macOS 12, and macOS 13. It will exit with error for any other macOS versions. When new versions of macOS are released, this logic should be updated after the script has been tested successfully.
 if [[ "$OS_MAJOR" -lt 10 ]] || [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 15 ]] || [[ "$OS_MAJOR" -gt 13 ]]; then
     bail_out "❌ ERROR: This script supports macOS 10.15 Catalina, macOS 11 Big Sur, macOS 12 Monterey, and macOS 13 Ventura, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
 fi
 
-# Determine software update custom catalog URL if defined. Used for running beta
-# macOS releases. This URL needs to be retained in
-# /Library/Preferences/com.apple.SoftwareUpdate.plist if that file is reset in
-# the restart_softwareupdate_daemon function.
+# Determine software update custom catalog URL if defined. Used for running beta macOS releases. This URL needs to be retained in /Library/Preferences/com.apple.SoftwareUpdate.plist if that file is reset in the restart_softwareupdate_daemon function.
 SOFTWAREUPDATE_CATALOG_URL=$(/usr/bin/defaults read "/Library/Preferences/com.apple.SoftwareUpdate" CatalogURL 2>"/dev/null")
 if [[ -n "$SOFTWAREUPDATE_CATALOG_URL" ]]; then
     echo "Found macOS beta channel catalog URL, will retain this setting whenever com.apple.SoftwareUpdate is reset: ${SOFTWAREUPDATE_CATALOG_URL}"
@@ -597,8 +504,7 @@ fi
 
 # We need to be connected to the internet in order to download updates.
 if nc -zw1 "swscan.apple.com" 443; then
-    # Check if a software update custom catalog URL is set as a managed
-    # preference and if it is available (deprecated in macOS Big Sur and later).
+    # Check if a software update custom catalog URL is set as a managed preference and if it is available (deprecated in macOS Big Sur and later).
     if [[ "$OS_MAJOR" -lt 11 ]]; then
         SOFTWAREUPDATE_CATALOG_URL_MANAGED=$(/usr/bin/defaults read "/Library/Managed Preferences/com.apple.SoftwareUpdate" CatalogURL 2>"/dev/null")
         if [[ "$SOFTWAREUPDATE_CATALOG_URL_MANAGED" != "None" ]]; then
@@ -611,8 +517,7 @@ else
     bail_out "❌ ERROR: No connection to the Internet."
 fi
 
-# If FileVault encryption or decryption is in progress, installing updates that
-# require a restart can cause problems.
+# If FileVault encryption or decryption is in progress, installing updates that require a restart can cause problems.
 if /usr/bin/fdesetup status | /usr/bin/grep -q "in progress"; then
     bail_out "❌ ERROR: FileVault encryption or decryption is in progress."
 fi
@@ -633,7 +538,7 @@ echo "Validation and error checking passed. Starting main process..."
 ################################ MAIN PROCESS #################################
 
 # Validate configuration profile-enforced settings or use script defaults accordingly.
-# Whether to use custom labels for the install/defer buttons (default to "Install" and "Defer").
+# Whether to use custom labels for the install and defer buttons.
 if [[ -n "$INSTALL_BUTTON_CUSTOM" ]]; then
     INSTALL_BUTTON="$INSTALL_BUTTON_CUSTOM"
 else
@@ -649,8 +554,7 @@ else
 fi
 echo "Defer button label: ${DEFER_BUTTON}"
 
-# Whether to have the user run updates manually (default to false on Intel Macs,
-# always true on Apple Silicon Macs.)
+# Whether to have the user run updates manually.
 if [[ "$PLATFORM_ARCH" = "arm64" ]]; then
     MANUAL_UPDATES="True"
 elif [[ -n "$MANUAL_UPDATES_CUSTOM" ]]; then
@@ -668,8 +572,7 @@ else
 fi
 echo "Manual updates: ${MANUAL_UPDATES}"
 
-# Check for a custom messaging logo image, otherwise default to the Software
-# Update icon.
+# Whether to use a custom messaging logo image.
 if [[ -n "$MESSAGING_LOGO_CUSTOM" ]] && [[ -f "$MESSAGING_LOGO_CUSTOM" ]]; then
     MESSAGING_LOGO="$MESSAGING_LOGO_CUSTOM"
 else
@@ -682,7 +585,7 @@ else
 fi
 echo "Messaging logo: ${MESSAGING_LOGO}"
 
-# Populate support contact information (default to "IT").
+# Whether to use custom support contact information.
 if [[ -n "$SUPPORT_CONTACT_CUSTOM" ]]; then
     SUPPORT_CONTACT="$SUPPORT_CONTACT_CUSTOM"
 else
@@ -694,8 +597,7 @@ MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT
 MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
 MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
 
-# Check for recommended software updates. If any are found, format the update
-# list for user-facing messaging, otherwise exit script.
+# Check for recommended software updates. If any are found, format the update list for user-facing messaging, otherwise exit script.
 check_for_updates
 format_update_list
 
@@ -706,8 +608,7 @@ if [[ -z "$FORCE_DATE" || "$FORCE_DATE" -gt $(( $(/bin/date +%s) + MAX_DEFERRAL_
     /usr/bin/defaults write "$PLIST" UpdatesForcedAfter -int "$FORCE_DATE"
 fi
 
-# If a workday start and end hour have been defined and the deadline currently
-# occurs during the workday, shift it forward to the end of the workday.
+# If a workday start and end hour have been defined and the deadline currently occurs during the workday, shift it forward to the end of the workday.
 if [[ -n "$WORKDAY_START_HR_CUSTOM" ]] && [[ -n "$WORKDAY_END_HR_CUSTOM" ]]; then
     FORCE_DATE_HR=$(/bin/date -jf "%s" "+%H" "$FORCE_DATE")
     if [[ "$FORCE_DATE_HR" -ge "$WORKDAY_START_HR_CUSTOM" ]] && [[ "$FORCE_DATE_HR" -lt "$WORKDAY_END_HR_CUSTOM" ]]; then
@@ -726,9 +627,7 @@ echo "Time remaining: $(convert_seconds "$DEFER_TIME_LEFT")"
 # Get the "deferred until" timestamp, if one exists.
 DEFERRED_UNTIL=$(/usr/bin/defaults read "$PLIST" UpdatesDeferredUntil 2>"/dev/null")
 if [[ -n "$DEFERRED_UNTIL" ]] && (( DEFERRED_UNTIL > $(/bin/date +%s) && FORCE_DATE > DEFERRED_UNTIL )); then
-    # If the policy ran recently and was deferred, we need to respect that
-    # "defer until" timestamp, as long as it is earlier than the deferral
-    # deadline.
+    # If the policy ran recently and was deferred, we need to respect that "defer until" timestamp, as long as it is earlier than the deferral deadline.
     echo "The next prompt is deferred until after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$DEFERRED_UNTIL")."
     exit 0
 fi
@@ -788,10 +687,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
         echo "[WARNING] Unable to determine elapsed time between prompt and action."
     fi
 
-    # For reference, here is a list of the possible jamfHelper return codes:
-    # https://gist.github.com/homebysix/18c1a07a284089e7f279#file-jamfhelper_help-txt-L72-L84
-
-    # Take action based on the return code of the jamfHelper.
+    # Take action based on the return value of the jamfHelper. To see a list of all current jamfHelper return values, run `"/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper" -help` on a Mac enrolled in Jamf Pro.
     if [[ -n "$PROMPT" ]]; then
 
         # Zero response time is erroneous, so we'll bail out.
@@ -805,8 +701,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
             echo "User clicked ${INSTALL_BUTTON} ${PROMPT_ELAPSED_STR}."
 
-            # If manual updates are enabled,
-            # track the next deferral before proceeding.
+            # If manual updates are enabled, track the next deferral before proceeding.
             if [[ "$MANUAL_UPDATES" = "True" ]]; then
                 echo "Manual updates are enabled, so we'll continue to track the next deferral date in case the update isn't run in a timely manner."
                 NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
@@ -824,10 +719,10 @@ if (( DEFER_TIME_LEFT > 0 )); then
             kill -9 "$JAMFHELPER_PID"
             bail_out "❌ ERROR: jamfHelper was not able to launch ${PROMPT_ELAPSED_STR}."
 
-        # User clicked the defer button.
+        # User clicked the defer button, or the alert timed out.
         elif [[ "$PROMPT" -eq 2 ]]; then
 
-            echo "User clicked ${DEFER_BUTTON} ${PROMPT_ELAPSED_STR}."
+            echo "User clicked ${DEFER_BUTTON} (or the alert timed out) ${PROMPT_ELAPSED_STR}."
             NEXT_PROMPT=$(( $(/bin/date +%s) + EACH_DEFER ))
             if (( FORCE_DATE < NEXT_PROMPT )); then
                 NEXT_PROMPT="$FORCE_DATE"
@@ -846,7 +741,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
             /usr/bin/defaults write "$PLIST" UpdatesDeferredUntil -int "$NEXT_PROMPT"
             echo "Next prompt will appear after $(/bin/date -jf "%s" "+%Y-%m-%d %H:%M:%S" "$NEXT_PROMPT")."
 
-        # Unexpected return code from jamfHelper.
+        # Unexpected return value from jamfHelper.
         elif [[ "$PROMPT" -gt 2 ]]; then
 
             # Kill the jamfHelper prompt.
@@ -867,7 +762,7 @@ if (( DEFER_TIME_LEFT > 0 )); then
 
         # Kill the jamfHelper prompt.
         kill -9 "$JAMFHELPER_PID"
-        bail_out "❌ ERROR: Something went wrong. Check the jamfHelper return code (${PROMPT}) and prompt elapsed seconds (${PROMPT_ELAPSED_SEC}) for further information."
+        bail_out "❌ ERROR: Something went wrong. Check the jamfHelper return value (${PROMPT}) and prompt elapsed seconds (${PROMPT_ELAPSED_SEC}) for further information."
 
     fi
 
