@@ -157,7 +157,7 @@ restart_softwareupdate_daemon () {
         fi
         echo "Restarting com.apple.softwareupdated system service..."
         /bin/launchctl kickstart -k "system/com.apple.softwareupdated"
-        sleep "${1}"
+        sleep 30
     fi
 
 }
@@ -165,7 +165,7 @@ restart_softwareupdate_daemon () {
 # Checks for recommended macOS updates, or exits if no such updates are available.
 check_for_updates () {
 
-    restart_softwareupdate_daemon "30"
+    restart_softwareupdate_daemon
     echo "Checking for pending macOS updates..."
     # Capture output of softwareupdate --list, omitting any lines containing updates deferred via MDM.
     UPDATE_CHECK="$(/usr/sbin/softwareupdate --list 2>&1 | /usr/bin/grep -v 'Deferred: YES')"
@@ -287,7 +287,7 @@ install_updates () {
         "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
 
         # Install Apple system updates.
-        restart_softwareupdate_daemon "30"
+        restart_softwareupdate_daemon
         echo "Installing ${INSTALL_WHICH} Apple system updates..."
         # macOS Big Sur and later automatically trigger a restart as part of the softwareupdate action, meaning the script will not be able to run its clean_up functions until the next time it is run.
         if [[ "$OS_MAJOR" -gt 10 ]] && [[ "$INSTALL_WHICH" = "all" ]]; then
