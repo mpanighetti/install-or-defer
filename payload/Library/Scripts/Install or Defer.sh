@@ -4,19 +4,12 @@
 ###
 #
 #            Name:  Install or Defer.sh
-#     Description:  This script prompts users to install Apple system updates
-#                   that the IT department has deemed "critical." Users will
-#                   have the option to install the listed updates or defer for
-#                   the established time period, with a LaunchDaemon
-#                   periodically triggering the script to rerun. After a
-#                   specified amount of time, alerts will be displayed until all
-#                   required updates have been run, and if updates requiring a
-#                   restart were run, the system restarts automatically.
+#     Description:  This script prompts users to install Apple system updates that the IT department has deemed "critical." Users will have the option to install the listed updates or defer for the established time period, with a LaunchDaemon periodically triggering the script to rerun. After a specified amount of time, alerts will be displayed until all required updates have been run, and if updates requiring a restart were run, the system restarts automatically.
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2023-03-09
-#         Version:  6.0.1
+#   Last Modified:  2023-10-13
+#         Version:  6.0.2
 #
 ###
 
@@ -150,10 +143,10 @@ quit_jamfhelper () {
 
 }
 
-# Deletes cached results of previous software update checks, force-restarts the com.apple.softwareupdated system service, and sleeps for a period specified by the function run command. This is a workaround for reliability issues with repeated software update checks in macOS Big Sur, macOS Monterey, and macOS Ventura (13.2.1 and older).
+# Deletes cached results of previous software update checks, force-restarts the com.apple.softwareupdated system service, and sleeps for a period specified by the function run command. This is a workaround for reliability issues with repeated software update checks in macOS versions prior to macOS Ventura 13.3.
 restart_softwareupdate_daemon () {
 
-    if [[ "$OS_MAJOR" -eq 11 ]] || [[ "$OS_MAJOR" -eq 12 ]] || [[ "$OS_MAJOR" -eq 13 && "$OS_MINOR" -lt 3 ]]; then
+    if [[ "$OS_MAJOR" -lt 13 ]] || [[ "$OS_MAJOR" -eq 13 && "$OS_MINOR" -lt 3 ]]; then
         echo "Deleting cached update check data..."
         /usr/bin/defaults delete "/Library/Preferences/com.apple.SoftwareUpdate.plist"
         /bin/rm -f "/Library/Preferences/com.apple.SoftwareUpdate.plist"
@@ -164,7 +157,7 @@ restart_softwareupdate_daemon () {
         fi
         echo "Restarting com.apple.softwareupdated system service..."
         /bin/launchctl kickstart -k "system/com.apple.softwareupdated"
-        sleep "${1}"
+        sleep 30
     fi
 
 }
@@ -172,13 +165,13 @@ restart_softwareupdate_daemon () {
 # Checks for recommended macOS updates, or exits if no such updates are available.
 check_for_updates () {
 
-    restart_softwareupdate_daemon "30"
+    restart_softwareupdate_daemon
     echo "Checking for pending macOS updates..."
     # Capture output of softwareupdate --list, omitting any lines containing updates deferred via MDM.
     UPDATE_CHECK="$(/usr/sbin/softwareupdate --list 2>&1 | /usr/bin/grep -v 'Deferred: YES')"
-    # Remove any softwareupdate --list lines containing "macOS Ventura" for older macOS versions. This is a workaround for an issue where the softwareupdate output includes minor updates for later major macOS releases deferred via MDM and may not identify them as deferred in macOS Big Sur and macOS Monterey.
-    if [[ "$OS_MAJOR" -lt 13 ]]; then
-        UPDATE_CHECK=$(echo "$UPDATE_CHECK" | /usr/bin/grep -v "macOS Ventura")
+    # Remove any softwareupdate --list lines containing "macOS Sonoma" for older macOS versions. This addresses a macOS bug where major macOS releases are advertised as minor updates, which bypasses major macOS update deferrals via MDM. Note that this will only prevent the update from being displayed in script alerts, and the update may still be installed if multiple updates are available that require restarts.
+    if [[ "$OS_MAJOR" -lt 14 ]]; then
+        UPDATE_CHECK=$(echo "$UPDATE_CHECK" | /usr/bin/grep -v "macOS Sonoma")
     fi
 
     # Determine whether any recommended macOS updates are available. If a restart is required for any pending updates, then install all available software updates.
@@ -294,7 +287,7 @@ install_updates () {
         "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_UPDATING_HEADING" -description "$MSG_UPDATING" -lockHUD &
 
         # Install Apple system updates.
-        restart_softwareupdate_daemon "30"
+        restart_softwareupdate_daemon
         echo "Installing ${INSTALL_WHICH} Apple system updates..."
         # macOS Big Sur and later automatically trigger a restart as part of the softwareupdate action, meaning the script will not be able to run its clean_up functions until the next time it is run.
         if [[ "$OS_MAJOR" -gt 10 ]] && [[ "$INSTALL_WHICH" = "all" ]]; then
