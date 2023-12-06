@@ -11,7 +11,7 @@ This framework is distributed in the form of a [munkipkg](https://github.com/mun
 
 Here's what needs to be in place in order to use this framework:
 
-- The current version of this framework officially supports __macOS Catalina, Big Sur, Monterey, and Ventura__, but older script versions should continue to function normally for previous macOS releases (note, however, that those versions of macOS are no longer receiving regular security updates from Apple and thus may not benefit from this framework).
+- The current version of this framework officially supports __macOS Big Sur, Monterey, Ventura, and Sonoma__, but older script versions should continue to function normally for previous macOS releases (note, however, that those versions of macOS are no longer receiving regular security updates from Apple and thus may not benefit from this framework).
 - Target Macs must be __enrolled in Jamf Pro__ and have the `jamfHelper` binary installed.
 
 ### Optional
@@ -55,7 +55,7 @@ Here's how everything works, once it's configured:
 
 The framework has a few limitations of note:
 
-- Sequential updates cannot be installed as a group (e.g. Security Update 2022-003 Catalina cannot be installed unless 10.15.7 is already installed). If multiple sequential security updates are available, they are treated as two separate rounds of prompting/deferring. As a result, Macs requiring sequential updates may take more than one deferral and enforcement cycle (default 3 days) to be fully patched.
+- If multiple sequential security updates are available, they may be treated as two separate rounds of prompting/deferring. As a result, Macs requiring sequential updates may take more than one deferral and enforcement cycle (default 3 days) to be fully patched.
 - Reasonable attempts have been made to make this workflow enforceable, but there's nothing stopping an administrator of a Mac from unloading the LaunchDaemon or resetting the preference file.
 - On Apple Silicon Macs, running `softwareupdate --download` and `softwareupdate --install` via background script are unsupported. When this framework is run on an Apple Silicon Mac, enforcement instead takes a "softer" form, opening Software Update and leaving a persistent prompt in place until the updates are applied. Note that this workflow requires the Software Update preference pane to be available to a user with a [secure token and volume ownership](https://support.apple.com/guide/deployment/use-secure-and-bootstrap-tokens-dep24dbdcf9e/), so that they can apply available software updates and restart their Mac.
 - macOS will occasionally present major macOS upgrades (such as macOS Sonoma) on Macs running previous releases, even if an MDM profile deferring major updates is in place. The suggested workaround is to also defer minor updates (possibly for a shorter period) until you can approve the major upgrade in your environment. This script will remove Sonoma as a listed update when on macOS Ventura or older, but if the Mac sees multiple updates requiring restart, the deferred update may still be installed.
