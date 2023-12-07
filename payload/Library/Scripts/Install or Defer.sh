@@ -8,7 +8,7 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2023-12-06
+#   Last Modified:  2023-12-07
 #         Version:  7.0
 #
 ###
@@ -488,7 +488,7 @@ PLATFORM_ARCH="$(/usr/bin/arch)"
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $2}')
 
-# This script has currently been tested in macOS 11, macOS 12, macOS 13, and macOS 14. It will exit with error for any other macOS versions. When new versions of macOS are released, this logic should be updated after the script has been tested successfully.
+# This script has currently been tested in macOS 11 through macOS 14, and will exit with error for any other macOS versions. As a general rule, support for a macOS release is removed when it's been more than a year since that release was last updated. When new versions of macOS are released, this logic should be updated after the script has been tested successfully.
 if [[ "$OS_MAJOR" -lt 11 ]] || [[ "$OS_MAJOR" -gt 14 ]]; then
     bail_out "❌ ERROR: This script supports macOS 11 Big Sur, macOS 12 Monterey, macOS 13 Ventura, and macOS 14 Sonoma, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
 fi
