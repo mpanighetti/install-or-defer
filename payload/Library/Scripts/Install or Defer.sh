@@ -8,8 +8,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2023-10-13
-#         Version:  6.0.2
+#   Last Modified:  2023-12-07
+#         Version:  7.0
 #
 ###
 
@@ -244,6 +244,17 @@ display_act_msg () {
 
 }
 
+# Opens Software Update in current user context. Method differs by macOS version.
+open_software_update () {
+
+    if [[ "$OS_MAJOR" -lt 13 ]]; then
+        /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
+    else
+        /bin/launchctl asuser "$USER_ID" open "x-apple.systempreferences:com.apple.Software-Update-Settings.extension"
+    fi
+
+}
+
 # Opens Software Update, optionally prompting user to install updates via HUD message and automatically applying the update when able.
 install_updates () {
 
@@ -254,9 +265,9 @@ install_updates () {
         # If persistent notification is disabled and there is still deferral time left, just open Software Update once.
         if [[ "$DISABLE_POST_INSTALL_ALERT_CUSTOM" -eq 1 ]] && (( DEFER_TIME_LEFT > 0 )) ; then
 
+            # Open Software Update once.
             echo "Persistent alerting is disabled with deferral time remaining. Opening Software Update a single time..."
-            # Open Software Update in current user context.
-            /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
+            open_software_update
 
         # Display a persistent alert while opening Software Update and repeat until the user manually runs updates.
         else
@@ -270,8 +281,8 @@ install_updates () {
                 echo "Prompting to install updates now and opening Software Update..."
                 "$JAMFHELPER" -windowType "hud" -windowPosition "ur" -icon "$MESSAGING_LOGO" -title "$MSG_INSTALL_NOW_HEADING" -description "$MSG_INSTALL_NOW" -lockHUD &
 
-                # Open Software Update in current user context.
-                /bin/launchctl asuser "$USER_ID" open "/System/Library/PreferencePanes/SoftwareUpdate.prefPane"
+                # Open Software Update.
+                open_software_update
 
                 # Leave the alert up for 60 seconds before looping.
                 sleep 60
@@ -288,11 +299,7 @@ install_updates () {
 
         # Install Apple system updates.
         restart_softwareupdate_daemon
-        echo "Installing ${INSTALL_WHICH} Apple system updates..."
-        # macOS Big Sur and later automatically trigger a restart as part of the softwareupdate action, meaning the script will not be able to run its clean_up functions until the next time it is run.
-        if [[ "$OS_MAJOR" -gt 10 ]] && [[ "$INSTALL_WHICH" = "all" ]]; then
-            echo "System will restart as soon as the update is finished. Cleanup tasks will run on a subsequent update check."
-        fi
+        echo "Installing ${INSTALL_WHICH} Apple system updates... (if a restart is required, it will occur as soon as the update is finished, and cleanup tasks will run on a subsequent update check)"
         # shellcheck disable=SC2086
         UPDATE_OUTPUT_CAPTURE="$(/usr/sbin/softwareupdate --install --"${INSTALL_WHICH}" ${RESTART_FLAG} --no-scan 2>&1)"
         echo "Finished installing Apple updates."
@@ -367,9 +374,6 @@ trigger_restart () {
 
 # Ends script.
 exit_script () {
-
-    echo "Updating Jamf Pro inventory..."
-    "$JAMF_BINARY" recon
 
     clean_up
 
@@ -484,9 +488,9 @@ PLATFORM_ARCH="$(/usr/bin/arch)"
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $2}')
 
-# This script has currently been tested in macOS 10.15, macOS 11, macOS 12, and macOS 13. It will exit with error for any other macOS versions. When new versions of macOS are released, this logic should be updated after the script has been tested successfully.
-if [[ "$OS_MAJOR" -lt 10 ]] || [[ "$OS_MAJOR" -eq 10 && "$OS_MINOR" -lt 15 ]] || [[ "$OS_MAJOR" -gt 13 ]]; then
-    bail_out "❌ ERROR: This script supports macOS 10.15 Catalina, macOS 11 Big Sur, macOS 12 Monterey, and macOS 13 Ventura, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
+# This script has currently been tested in macOS 11 through macOS 14, and will exit with error for any other macOS versions. As a general rule, support for a macOS release is removed when it's been more than a year since that release was last updated. When new versions of macOS are released, this logic should be updated after the script has been tested successfully.
+if [[ "$OS_MAJOR" -lt 11 ]] || [[ "$OS_MAJOR" -gt 14 ]]; then
+    bail_out "❌ ERROR: This script supports macOS 11 Big Sur, macOS 12 Monterey, macOS 13 Ventura, and macOS 14 Sonoma, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
 fi
 
 # Determine software update custom catalog URL if defined. Used for running beta macOS releases. This URL needs to be retained in /Library/Preferences/com.apple.SoftwareUpdate.plist if that file is reset in the restart_softwareupdate_daemon function.
@@ -496,16 +500,8 @@ if [[ -n "$SOFTWAREUPDATE_CATALOG_URL" ]]; then
 fi
 
 # We need to be connected to the internet in order to download updates.
-if nc -zw1 "swscan.apple.com" 443; then
-    # Check if a software update custom catalog URL is set as a managed preference and if it is available (deprecated in macOS Big Sur and later).
-    if [[ "$OS_MAJOR" -lt 11 ]]; then
-        SOFTWAREUPDATE_CATALOG_URL_MANAGED=$(/usr/bin/defaults read "/Library/Managed Preferences/com.apple.SoftwareUpdate" CatalogURL 2>"/dev/null")
-        if [[ "$SOFTWAREUPDATE_CATALOG_URL_MANAGED" != "None" ]]; then
-            if /usr/bin/curl --user-agent "Darwin/$(/usr/bin/uname -r)" -s --head "$SOFTWAREUPDATE_CATALOG_URL_MANAGED" | /usr/bin/grep "200 OK" >"/dev/null"; then
-                bail_out "❌ ERROR: Software update catalog can not be reached."
-            fi
-        fi
-    fi
+if /usr/bin/nc -zw1 "swscan.apple.com" 443; then
+    echo "Verified this Mac is able to communicate with Apple's software update servers."
 else
     bail_out "❌ ERROR: No connection to the Internet."
 fi
@@ -589,6 +585,9 @@ MSG_INSTALL_OR_DEFER="$(echo "$MSG_INSTALL_OR_DEFER" | /usr/bin/sed "s/%SUPPORT_
 MSG_INSTALL="$(echo "$MSG_INSTALL" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
 MSG_INSTALL_NOW="$(echo "$MSG_INSTALL_NOW" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
 MSG_UPDATING="$(echo "$MSG_UPDATING" | /usr/bin/sed "s/%SUPPORT_CONTACT%/${SUPPORT_CONTACT}/")"
+
+# Update Jamf Pro inventory.
+"$JAMF_BINARY" recon
 
 # Check for recommended software updates. If any are found, format the update list for user-facing messaging, otherwise exit script.
 check_for_updates
