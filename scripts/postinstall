@@ -2,8 +2,7 @@
 
 MAIN_LD="${3}/Library/LaunchDaemons/com.github.mpanighetti.install-or-defer.plist"
 
-# Set ownership and permissions on LaunchDaemon (in case files were modified
-# prior to distribution and ownership/permissions were not properly set).
+# Set ownership and permissions on LaunchDaemon (in case files were modified prior to distribution and ownership/permissions were not properly set).
 /usr/sbin/chown root:wheel "$MAIN_LD"
 /bin/chmod 644 "$MAIN_LD"
 
