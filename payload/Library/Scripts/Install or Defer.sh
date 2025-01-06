@@ -8,8 +8,8 @@
 #                   https://github.com/mpanighetti/install-or-defer
 #         Authors:  Mario Panighetti and Elliot Jordan
 #         Created:  2017-03-09
-#   Last Modified:  2023-12-07
-#         Version:  7.0
+#   Last Modified:  2025-01-06
+#         Version:  7.0.1
 #
 ###
 
@@ -169,10 +169,6 @@ check_for_updates () {
     echo "Checking for pending macOS updates..."
     # Capture output of softwareupdate --list, omitting any lines containing updates deferred via MDM.
     UPDATE_CHECK="$(/usr/sbin/softwareupdate --list 2>&1 | /usr/bin/grep -v 'Deferred: YES')"
-    # Remove any softwareupdate --list lines containing "macOS Sonoma" for older macOS versions. This addresses a macOS bug where major macOS releases are advertised as minor updates, which bypasses major macOS update deferrals via MDM. Note that this will only prevent the update from being displayed in script alerts, and the update may still be installed if multiple updates are available that require restarts.
-    if [[ "$OS_MAJOR" -lt 14 ]]; then
-        UPDATE_CHECK=$(echo "$UPDATE_CHECK" | /usr/bin/grep -v "macOS Sonoma")
-    fi
 
     # Determine whether any recommended macOS updates are available. If a restart is required for any pending updates, then install all available software updates.
     if echo "$UPDATE_CHECK" | /usr/bin/grep -q "restart"; then
@@ -488,9 +484,11 @@ PLATFORM_ARCH="$(/usr/bin/arch)"
 OS_MAJOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $1}')
 OS_MINOR=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F . '{print $2}')
 
-# This script has currently been tested in macOS 11 through macOS 14, and will exit with error for any other macOS versions. As a general rule, support for a macOS release is removed when it's been more than a year since that release was last updated. When new versions of macOS are released, this logic should be updated after the script has been tested successfully.
-if [[ "$OS_MAJOR" -lt 11 ]] || [[ "$OS_MAJOR" -gt 14 ]]; then
-    bail_out "❌ ERROR: This script supports macOS 11 Big Sur, macOS 12 Monterey, macOS 13 Ventura, and macOS 14 Sonoma, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
+# This script has currently been tested in macOS 12 through macOS 15, and will exit with error for older macOS versions. As a general rule, support for a macOS release is removed when it's been more than a year since that release was last updated. macOS versions newer than the tested range will proceed with a warning that compatibility may not have been tested; once new versions of macOS are released, this logic should be updated after the script has been tested successfully.
+if [[ "$OS_MAJOR" -lt 12 ]]; then
+    bail_out "❌ ERROR: This script supports macOS 12 Monterey, macOS 13 Ventura, macOS 14 Sonoma, and macOS 15 Sequoia, but this Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, unable to proceed."
+elif [[ "$OS_MAJOR" -gt 15 ]]; then
+    echo "⚠️ WARNING: This Mac is running macOS ${OS_MAJOR}.${OS_MINOR}, which has not yet been tested for compatibility with this script. If you encounter any issues running this script on this macOS release, please submit an issue or pull request on GitHub for fixes."
 fi
 
 # Determine software update custom catalog URL if defined. Used for running beta macOS releases. This URL needs to be retained in /Library/Preferences/com.apple.SoftwareUpdate.plist if that file is reset in the restart_softwareupdate_daemon function.

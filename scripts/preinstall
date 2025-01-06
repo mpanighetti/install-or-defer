@@ -8,8 +8,7 @@ remove_resource () {
     if [ -e "$1" ]; then
         if  echo "$1" | /usr/bin/grep -q ".plist"; then
             PLIST_LABEL=$(/usr/bin/basename "$1" | /usr/bin/awk -F.plist '{print $1}')
-            # If plist is loaded as a LaunchDaemon,
-            # remove the launchd task before file deletion.
+            # If plist is loaded as a LaunchDaemon, remove the launchd task before file deletion.
             if /bin/launchctl list | /usr/bin/grep -q "$PLIST_LABEL"; then
                 /bin/launchctl remove "$PLIST_LABEL"
                 echo "Removed LaunchDaemon: ${PLIST_LABEL}"
